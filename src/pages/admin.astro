@@ -69,6 +69,8 @@ import SearchBar from '../components/SearchBar.astro';
                         <input
                             type="text"
                             id="title"
+                            name="title"
+                            required
                             class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"
                         />
                     </div>
@@ -78,6 +80,8 @@ import SearchBar from '../components/SearchBar.astro';
                         <input
                             type="url"
                             id="urlUSA"
+                            name="urlUSA"
+                            required
                             class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"
                         />
                     </div>
@@ -87,6 +91,8 @@ import SearchBar from '../components/SearchBar.astro';
                         <input
                             type="url"
                             id="urlMexico"
+                            name="urlMexico"
+                            required
                             class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"
                         />
                     </div>
@@ -96,9 +102,12 @@ import SearchBar from '../components/SearchBar.astro';
                         <input
                             type="file"
                             id="image"
+                            name="image"
                             accept="image/*"
+                            required
                             class="mt-1 block w-full"
                         />
+                        <img id="imagePreview" class="mt-2 hidden max-w-xs" alt="Vista previa" />
                     </div>
                     
                     <div class="flex space-x-4">
@@ -159,43 +168,92 @@ import SearchBar from '../components/SearchBar.astro';
     }
 
     window.deleteProduct = async function(index) {
-        products.splice(index, 1);
-        await saveProducts(products);
-        renderProducts();
+        if (confirm('¿Estás seguro de que quieres eliminar este producto?')) {
+            products.splice(index, 1);
+            await saveProducts(products);
+            renderProducts();
+        }
     }
 
-    window.addProduct = async function() {
-        const titleInput = document.getElementById('title');
-        const imageInput = document.getElementById('image');
-        const urlMexicoInput = document.getElementById('urlMexico');
-        const urlUSAInput = document.getElementById('urlUSA');
+    // Modal handling
+    const modal = document.getElementById('uploadModal');
+    const openModalBtn = document.getElementById('openUploadModal');
+    const closeModalBtn = document.getElementById('closeModal');
+    const uploadForm = document.getElementById('uploadForm');
+    const imageInput = document.getElementById('image');
+    const imagePreview = document.getElementById('imagePreview');
 
-        if (!titleInput.value || !imageInput.value || !urlMexicoInput.value || !urlUSAInput.value) {
-            alert('Por favor llena todos los campos');
-            return;
-        }
+    if (openModalBtn) {
+        openModalBtn.addEventListener('click', () => {
+            modal.classList.remove('hidden');
+            uploadForm.reset();
+            imagePreview.classList.add('hidden');
+        });
+    }
 
-        const newProduct = {
-            title: titleInput.value,
-            image: imageInput.value,
-            urlMexico: urlMexicoInput.value,
-            urlUSA: urlUSAInput.value
-        };
+    if (closeModalBtn) {
+        closeModalBtn.addEventListener('click', () => {
+            modal.classList.add('hidden');
+        });
+    }
 
-        products.push(newProduct);
-        await saveProducts(products);
-        
-        titleInput.value = '';
-        imageInput.value = '';
-        urlMexicoInput.value = '';
-        urlUSAInput.value = '';
+    if (imageInput) {
+        imageInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                    imagePreview.src = reader.result;
+                    imagePreview.classList.remove('hidden');
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+    }
 
-        renderProducts();
+    if (uploadForm) {
+        uploadForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const titleInput = document.getElementById('title');
+            const imageInput = document.getElementById('image');
+            const urlMexicoInput = document.getElementById('urlMexico');
+            const urlUSAInput = document.getElementById('urlUSA');
+
+            if (!titleInput.value || !imageInput.files[0] || !urlMexicoInput.value || !urlUSAInput.value) {
+                alert('Por favor llena todos los campos');
+                return;
+            }
+
+            try {
+                const reader = new FileReader();
+                reader.onloadend = async () => {
+                    const newProduct = {
+                        title: titleInput.value,
+                        image: reader.result,
+                        urlMexico: urlMexicoInput.value,
+                        urlUSA: urlUSAInput.value
+                    };
+
+                    products.push(newProduct);
+                    await saveProducts(products);
+                    renderProducts();
+                    
+                    modal.classList.add('hidden');
+                    uploadForm.reset();
+                    imagePreview.classList.add('hidden');
+                };
+                reader.readAsDataURL(imageInput.files[0]);
+            } catch (error) {
+                console.error('Error al guardar el producto:', error);
+                alert('Error al guardar el producto. Por favor intenta de nuevo.');
+            }
+        });
     }
 
     document.addEventListener('DOMContentLoaded', loadProducts);
 
-    // Manejar búsqueda
+    // Search handling
     const searchInput = document.getElementById('adminSearchInput');
     if (searchInput) {
         let debounceTimer;
@@ -216,34 +274,6 @@ import SearchBar from '../components/SearchBar.astro';
             }
         });
     }
-
-    // Funcionalidad del modal
-    const modal = document.getElementById('uploadModal');
-    const openModalBtn = document.getElementById('openUploadModal');
-    const closeModalBtn = document.getElementById('closeModal');
-
-    openModalBtn.addEventListener('click', () => {
-        modal.classList.remove('hidden');
-    });
-
-    closeModalBtn.addEventListener('click', () => {
-        modal.classList.add('hidden');
-    });
-
-    // Cerrar modal al hacer clic fuera
-    modal.addEventListener('click', (e) => {
-        if (e.target === modal) {
-            modal.classList.add('hidden');
-        }
-    });
-
-    // Handle form submission
-    const form = document.getElementById('uploadForm');
-
-    form.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        await addProduct();
-    });
 
     document.getElementById('scrollToBottom').addEventListener('click', function() {
         window.scrollTo({
