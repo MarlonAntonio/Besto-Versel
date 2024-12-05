@@ -131,7 +131,7 @@ import SearchBar from '../components/SearchBar.astro';
 </div>
 
 <script>
-    import { saveProducts, getProducts } from '../utils/productStorage';
+    import { saveProducts, getProducts, optimizeImageForStorage } from '../utils/productStorage';
     import '../scripts/headerEditor';
 
     let products = [];
@@ -226,27 +226,42 @@ import SearchBar from '../components/SearchBar.astro';
             }
 
             try {
+                const submitButton = uploadForm.querySelector('button[type="submit"]');
+                submitButton.disabled = true;
+                submitButton.textContent = 'Guardando...';
+
                 const reader = new FileReader();
                 reader.onloadend = async () => {
-                    const newProduct = {
-                        title: titleInput.value,
-                        image: reader.result,
-                        urlMexico: urlMexicoInput.value,
-                        urlUSA: urlUSAInput.value
-                    };
+                    try {
+                        // Optimizar la imagen antes de guardar
+                        const optimizedImage = await optimizeImageForStorage(reader.result);
+                        
+                        const newProduct = {
+                            title: titleInput.value,
+                            image: optimizedImage,
+                            urlMexico: urlMexicoInput.value,
+                            urlUSA: urlUSAInput.value
+                        };
 
-                    products.push(newProduct);
-                    await saveProducts(products);
-                    renderProducts();
-                    
-                    modal.classList.add('hidden');
-                    uploadForm.reset();
-                    imagePreview.classList.add('hidden');
+                        products.push(newProduct);
+                        await saveProducts(products);
+                        await loadProducts(); // Recargar productos para obtener las URLs actualizadas
+                        
+                        modal.classList.add('hidden');
+                        uploadForm.reset();
+                        imagePreview.classList.add('hidden');
+                    } catch (error) {
+                        console.error('Error al guardar el producto:', error);
+                        alert('Error al guardar el producto. Por favor intenta de nuevo.');
+                    } finally {
+                        submitButton.disabled = false;
+                        submitButton.textContent = 'Guardar Producto';
+                    }
                 };
                 reader.readAsDataURL(imageInput.files[0]);
             } catch (error) {
-                console.error('Error al guardar el producto:', error);
-                alert('Error al guardar el producto. Por favor intenta de nuevo.');
+                console.error('Error al procesar la imagen:', error);
+                alert('Error al procesar la imagen. Por favor intenta de nuevo.');
             }
         });
     }
