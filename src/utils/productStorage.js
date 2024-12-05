@@ -1,3 +1,5 @@
+import { uploadImageToBlob } from './blobStorage';
+
 // Cache de productos para evitar llamadas innecesarias a la API
 let productsCache = null;
 let lastFetchTime = 0;
@@ -6,12 +8,22 @@ const CACHE_DURATION = 5 * 60 * 1000; // 5 minutos
 // Función para guardar productos
 export async function saveProducts(products) {
     try {
+        // Procesar cada producto para guardar las imágenes en Vercel Blob
+        const processedProducts = await Promise.all(products.map(async (product) => {
+            // Si la imagen es un data URL, subirla a Vercel Blob
+            if (product.image && product.image.startsWith('data:image')) {
+                const imageUrl = await uploadImageToBlob(product.image);
+                return { ...product, image: imageUrl };
+            }
+            return product;
+        }));
+
         const response = await fetch('/api/products', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify(products)
+            body: JSON.stringify(processedProducts)
         });
         
         if (!response.ok) {
@@ -20,7 +32,7 @@ export async function saveProducts(products) {
         }
         
         // Actualizar el cache
-        productsCache = products;
+        productsCache = processedProducts;
         lastFetchTime = Date.now();
         
         return await response.json();
@@ -104,10 +116,10 @@ export async function optimizeImageForStorage(imageDataUrl) {
         // Dibujar la imagen optimizada
         ctx.drawImage(img, 0, 0, width, height);
 
-        // Convertir a WebP con calidad reducida
+        // Convertir a WebP con calidad optimizada
         return canvas.toDataURL('image/webp', 0.8);
     } catch (error) {
         console.error('Error optimizing image:', error);
-        return imageDataUrl; // Devolver la imagen original si hay un error
+        throw error;
     }
 }

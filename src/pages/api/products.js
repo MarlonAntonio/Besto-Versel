@@ -1,7 +1,6 @@
-import { put, list, del } from '@vercel/blob';
+import { put, list } from '@vercel/blob';
 
 const PRODUCTS_FILE = 'products.json';
-const IMAGES_FOLDER = 'images/';
 
 // Función auxiliar para manejar errores
 function handleError(error) {
@@ -49,34 +48,9 @@ export async function POST({ request }) {
 
     try {
         const products = await request.json();
-
-        // Procesar cada producto para guardar las imágenes por separado
-        const processedProducts = await Promise.all(products.map(async (product) => {
-            if (product.image && product.image.startsWith('data:image')) {
-                // Generar un nombre único para la imagen
-                const timestamp = Date.now();
-                const randomString = Math.random().toString(36).substring(7);
-                const imageFileName = `${IMAGES_FOLDER}${timestamp}-${randomString}.webp`;
-
-                // Convertir data URL a Blob
-                const base64Data = product.image.split(',')[1];
-                const imageBlob = Buffer.from(base64Data, 'base64');
-
-                // Subir la imagen a Vercel Blob
-                const { url } = await put(imageFileName, imageBlob, {
-                    access: 'public',
-                    addRandomSuffix: false,
-                    token: process.env.BLOB_READ_WRITE_TOKEN
-                });
-
-                // Reemplazar el data URL con la URL de la imagen
-                return { ...product, image: url };
-            }
-            return product;
-        }));
-
-        // Guardar los productos actualizados
-        const productsJson = JSON.stringify(processedProducts);
+        
+        // Guardar los productos
+        const productsJson = JSON.stringify(products);
         await put(PRODUCTS_FILE, productsJson, {
             access: 'public',
             addRandomSuffix: false,
@@ -85,7 +59,7 @@ export async function POST({ request }) {
 
         return new Response(JSON.stringify({ 
             success: true, 
-            products: processedProducts 
+            products: products 
         }), {
             status: 200,
             headers: { 'Content-Type': 'application/json' }

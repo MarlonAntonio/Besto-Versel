@@ -5,7 +5,7 @@ import SearchBar from '../components/SearchBar.astro';
 ---
 
 <div class="flex justify-center mb-4">
-    <button id="scrollToBottom" class="py-2 px-4 bg-blue-500 text-white rounded-md hover:bg-blue-600">
+    <button id="scrollToBottom" class="py-2 px-4 bg-blue-700 text-white rounded-md hover:bg-blue-800 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
         Ir hasta abajo
     </button>
 </div>
@@ -16,7 +16,7 @@ import SearchBar from '../components/SearchBar.astro';
             <div class="flex items-center gap-4">
                 <button 
                     id="openUploadModal" 
-                    class="py-2 px-4 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 flex items-center gap-2"
+                    class="py-2 px-4 bg-indigo-700 text-white rounded-md hover:bg-indigo-800 focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 flex items-center gap-2"
                 >
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                         <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
@@ -25,7 +25,7 @@ import SearchBar from '../components/SearchBar.astro';
                 </button>
                 <button 
                     id="clearStorage" 
-                    class="py-2 px-4 bg-red-600 text-white rounded-md hover:bg-red-700 flex items-center gap-2"
+                    class="py-2 px-4 bg-red-700 text-white rounded-md hover:bg-red-800 focus:ring-2 focus:ring-red-500 focus:ring-offset-2 flex items-center gap-2"
                 >
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                         <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
@@ -33,7 +33,7 @@ import SearchBar from '../components/SearchBar.astro';
                     Borrar Productos
                 </button>
             </div>
-            <h1 class="text-3xl font-bold">Panel Administrador</h1>
+            <h1 class="text-3xl font-bold text-gray-900">Panel Administrador</h1>
         </div>
 
         <!-- Editor del Header -->
@@ -41,7 +41,7 @@ import SearchBar from '../components/SearchBar.astro';
 
         <!-- Galería de productos -->
         <div class="max-w-4xl mx-auto">
-            <h2 class="text-2xl font-bold mb-6">Productos Existentes</h2>
+            <h2 class="text-2xl font-bold text-gray-900 mb-6">Productos Existentes</h2>
             <SearchBar 
                 placeholder="Buscar productos" 
                 id="adminSearchInput"
@@ -53,71 +53,69 @@ import SearchBar from '../components/SearchBar.astro';
         </div>
 
         <!-- Modal de subida de productos -->
-        <div id="uploadModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden flex items-center justify-center">
+        <div id="uploadModal" class="fixed inset-0 bg-gray-900 bg-opacity-50 hidden flex items-center justify-center">
             <div class="bg-white rounded-lg p-6 max-w-xl w-full max-h-[90vh] overflow-y-auto relative">
-                <button id="closeModal" class="absolute top-4 right-4 text-gray-500 hover:text-gray-700">
+                <button id="closeModal" class="absolute top-4 right-4 text-gray-700 hover:text-gray-900">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                     </svg>
                 </button>
                 
-                <h2 class="text-2xl font-bold mb-6">Subir Nuevo Producto</h2>
+                <h2 class="text-2xl font-bold text-gray-900 mb-6">Subir Nuevo Producto</h2>
                 
                 <form id="uploadForm" class="space-y-4">
                     <div>
-                        <label for="title" class="block text-sm font-medium text-gray-700">Titulo</label>
+                        <label for="title" class="block text-sm font-medium text-gray-900">Titulo</label>
                         <input
                             type="text"
                             id="title"
                             name="title"
                             required
-                            class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"
+                            class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                         />
                     </div>
                     
                     <div>
-                        <label for="urlUSA" class="block text-sm font-medium text-gray-700">URL Amazon Afiliados USA</label>
+                        <label for="urlUSA" class="block text-sm font-medium text-gray-900">URL Amazon Afiliados USA</label>
                         <input
                             type="url"
                             id="urlUSA"
                             name="urlUSA"
                             required
-                            class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"
+                            class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                         />
                     </div>
                     
                     <div>
-                        <label for="urlMexico" class="block text-sm font-medium text-gray-700">URL Amazon Afiliados Mexico</label>
+                        <label for="urlMexico" class="block text-sm font-medium text-gray-900">URL Amazon Afiliados Mexico</label>
                         <input
                             type="url"
                             id="urlMexico"
                             name="urlMexico"
                             required
-                            class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"
+                            class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                         />
                     </div>
                     
                     <div>
-                        <label for="image" class="block text-sm font-medium text-gray-700">Imagen</label>
+                        <label for="image" class="block text-sm font-medium text-gray-900">Imagen del Producto</label>
                         <input
                             type="file"
                             id="image"
                             name="image"
                             accept="image/*"
                             required
-                            class="mt-1 block w-full"
+                            class="mt-1 block w-full text-gray-900"
                         />
-                        <img id="imagePreview" class="mt-2 hidden max-w-xs" alt="Vista previa" />
+                        <img id="imagePreview" alt="Vista previa de la imagen" class="hidden mt-2 max-w-full h-auto rounded-lg" />
                     </div>
                     
-                    <div class="flex space-x-4">
-                        <button
-                            type="submit"
-                            class="flex-1 py-2 px-4 border border-transparent rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700"
-                        >
-                            Guardar Producto
-                        </button>
-                    </div>
+                    <button 
+                        type="submit"
+                        class="w-full py-2 px-4 bg-indigo-700 text-white rounded-md hover:bg-indigo-800 focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                    >
+                        Guardar Producto
+                    </button>
                 </form>
             </div>
         </div>
@@ -137,43 +135,51 @@ import SearchBar from '../components/SearchBar.astro';
     let products = [];
 
     async function loadProducts() {
-        products = await getProducts();
-        renderProducts();
+        try {
+            products = await getProducts(true);
+            renderProducts();
+        } catch (error) {
+            console.error('Error loading products:', error);
+            alert('Error al cargar los productos');
+        }
     }
 
-    function renderProducts(filteredProducts = products) {
+    function renderProducts(productsToRender = products) {
         const gallery = document.getElementById('gallery');
         if (!gallery) return;
-        
-        gallery.innerHTML = filteredProducts.map((product, index) => `
-            <div class="bg-white border rounded-lg overflow-hidden aspect-[3/4] relative group">
+
+        gallery.innerHTML = productsToRender.map((product, index) => `
+            <div class="relative group">
                 <img 
                     src="${product.image}" 
-                    alt="${product.title}" 
-                    class="w-full h-full object-cover"
-                >
-                <div class="absolute bottom-0 left-0 right-0 bg-white bg-opacity-75 backdrop-blur-sm p-2">
-                    <h3 class="text-black font-bold text-xs text-center line-clamp-2">${product.title}</h3>
+                    alt="${product.title}"
+                    class="w-full aspect-square object-cover rounded-lg"
+                />
+                <div class="absolute inset-0 bg-gray-900 bg-opacity-75 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                    <button 
+                        onclick="deleteProduct(${index})" 
+                        class="bg-red-700 text-white px-3 py-1 rounded hover:bg-red-800 focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
+                    >
+                        Eliminar
+                    </button>
                 </div>
-                <button 
-                    onclick="deleteProduct(${index})" 
-                    class="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                >
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                </button>
+                <p class="mt-2 text-sm text-gray-900 truncate">${product.title}</p>
             </div>
         `).join('');
     }
 
     window.deleteProduct = async function(index) {
-        if (confirm('¿Estás seguro de que quieres eliminar este producto?')) {
+        if (!confirm('¿Estás seguro de que quieres eliminar este producto?')) return;
+        
+        try {
             products.splice(index, 1);
             await saveProducts(products);
             renderProducts();
+        } catch (error) {
+            console.error('Error deleting product:', error);
+            alert('Error al eliminar el producto');
         }
-    }
+    };
 
     // Modal handling
     const modal = document.getElementById('uploadModal');
@@ -183,21 +189,21 @@ import SearchBar from '../components/SearchBar.astro';
     const imageInput = document.getElementById('image');
     const imagePreview = document.getElementById('imagePreview');
 
-    if (openModalBtn) {
+    if (openModalBtn && modal) {
         openModalBtn.addEventListener('click', () => {
             modal.classList.remove('hidden');
-            uploadForm.reset();
-            imagePreview.classList.add('hidden');
         });
     }
 
-    if (closeModalBtn) {
+    if (closeModalBtn && modal) {
         closeModalBtn.addEventListener('click', () => {
             modal.classList.add('hidden');
+            if (uploadForm) uploadForm.reset();
+            if (imagePreview) imagePreview.classList.add('hidden');
         });
     }
 
-    if (imageInput) {
+    if (imageInput && imagePreview) {
         imageInput.addEventListener('change', (e) => {
             const file = e.target.files[0];
             if (file) {
@@ -230,6 +236,9 @@ import SearchBar from '../components/SearchBar.astro';
                 submitButton.disabled = true;
                 submitButton.textContent = 'Guardando...';
 
+                // Primero cargar los productos existentes
+                products = await getProducts(true);
+
                 const reader = new FileReader();
                 reader.onloadend = async () => {
                     try {
@@ -244,12 +253,17 @@ import SearchBar from '../components/SearchBar.astro';
                         };
 
                         products.push(newProduct);
-                        await saveProducts(products);
-                        await loadProducts(); // Recargar productos para obtener las URLs actualizadas
+                        const result = await saveProducts(products);
                         
-                        modal.classList.add('hidden');
-                        uploadForm.reset();
-                        imagePreview.classList.add('hidden');
+                        if (result.success) {
+                            products = result.products;
+                            renderProducts();
+                            modal.classList.add('hidden');
+                            uploadForm.reset();
+                            imagePreview.classList.add('hidden');
+                        } else {
+                            throw new Error('Error al guardar el producto');
+                        }
                     } catch (error) {
                         console.error('Error al guardar el producto:', error);
                         alert('Error al guardar el producto. Por favor intenta de nuevo.');
@@ -266,6 +280,24 @@ import SearchBar from '../components/SearchBar.astro';
         });
     }
 
+    // Clear storage button
+    const clearStorageBtn = document.getElementById('clearStorage');
+    if (clearStorageBtn) {
+        clearStorageBtn.addEventListener('click', async () => {
+            if (!confirm('¿Estás seguro de que quieres borrar todos los productos?')) return;
+            
+            try {
+                products = [];
+                await saveProducts(products);
+                renderProducts();
+            } catch (error) {
+                console.error('Error clearing storage:', error);
+                alert('Error al borrar los productos');
+            }
+        });
+    }
+
+    // Load products on page load
     document.addEventListener('DOMContentLoaded', loadProducts);
 
     // Search handling
@@ -289,27 +321,4 @@ import SearchBar from '../components/SearchBar.astro';
             }
         });
     }
-
-    document.getElementById('scrollToBottom').addEventListener('click', function() {
-        window.scrollTo({
-            top: document.body.scrollHeight,
-            behavior: 'smooth'
-        });
-    });
-
-    document.getElementById('scrollToTop').addEventListener('click', function() {
-        window.scrollTo({
-            top: 0,
-            behavior: 'smooth'
-        });
-    });
-
-    // Funcionalidad para borrar localStorage
-    document.getElementById('clearStorage').addEventListener('click', async () => {
-        if (confirm('¿Estás seguro de que quieres borrar todos los productos? Esta acción no se puede deshacer.')) {
-            await saveProducts([]);
-            loadProducts(); // Recargar la galería vacía
-            alert('Todos los productos han sido borrados.');
-        }
-    });
 </script>
