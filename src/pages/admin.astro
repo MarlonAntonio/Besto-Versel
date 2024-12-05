@@ -1,0 +1,374 @@
+---
+import MainLayout from '../layouts/MainLayout.astro';
+import HeaderEditor from '../components/HeaderEditor';
+import SearchBar from '../components/SearchBar.astro';
+import { optimizeImage, getBase64Size } from '../utils/imageOptimizer';
+---
+
+<div class="flex justify-center mb-4">
+    <button id="scrollToBottom" class="py-2 px-4 bg-blue-500 text-white rounded-md hover:bg-blue-600">
+        Ir hasta abajo
+    </button>
+</div>
+
+<MainLayout title="Panel de Administración">
+    <div class="container mx-auto px-4 py-8">
+        <div class="flex justify-between items-center mb-8">
+            <div class="flex items-center gap-4">
+                <button 
+                    id="openUploadModal" 
+                    class="py-2 px-4 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 flex items-center gap-2"
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
+                    </svg>
+                    Subir Producto
+                </button>
+                <button 
+                    id="clearStorage" 
+                    class="py-2 px-4 bg-red-600 text-white rounded-md hover:bg-red-700 flex items-center gap-2"
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
+                    </svg>
+                    Borrar Productos
+                </button>
+            </div>
+            <h1 class="text-3xl font-bold">Panel Administrador</h1>
+        </div>
+
+        <!-- Editor del Header -->
+        <HeaderEditor client:load />
+
+        <!-- Galería de productos -->
+        <div class="max-w-4xl mx-auto">
+            <h2 class="text-2xl font-bold mb-6">Productos Existentes</h2>
+            <SearchBar 
+                placeholder="Buscar productos" 
+                id="adminSearchInput"
+                aria-label="Buscar productos"
+            />
+            <div id="productGallery" class="grid grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-2 sm:gap-4">
+                <!-- Products will be loaded here -->
+            </div>
+        </div>
+
+        <!-- Modal de subida de productos -->
+        <div id="uploadModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden flex items-center justify-center">
+            <div class="bg-white rounded-lg p-6 max-w-xl w-full max-h-[90vh] overflow-y-auto relative">
+                <button id="closeModal" class="absolute top-4 right-4 text-gray-500 hover:text-gray-700">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+                
+                <h2 class="text-2xl font-bold mb-6">Subir Nuevo Producto</h2>
+                
+                <form id="uploadForm" class="space-y-4">
+                    <div>
+                        <label for="title" class="block text-sm font-medium text-gray-700">Titulo</label>
+                        <input
+                            type="text"
+                            id="title"
+                            class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"
+                        />
+                    </div>
+                    
+                    <div>
+                        <label for="urlUSA" class="block text-sm font-medium text-gray-700">URL Amazon Afiliados USA</label>
+                        <input
+                            type="url"
+                            id="urlUSA"
+                            class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"
+                        />
+                    </div>
+                    
+                    <div>
+                        <label for="urlMexico" class="block text-sm font-medium text-gray-700">URL Amazon Afiliados Mexico</label>
+                        <input
+                            type="url"
+                            id="urlMexico"
+                            class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"
+                        />
+                    </div>
+                    
+                    <div>
+                        <label for="image" class="block text-sm font-medium text-gray-700">Imagen</label>
+                        <input
+                            type="file"
+                            id="image"
+                            accept="image/*"
+                            class="mt-1 block w-full"
+                        />
+                    </div>
+                    
+                    <div class="flex space-x-4">
+                        <button
+                            type="submit"
+                            class="flex-1 py-2 px-4 border border-transparent rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700"
+                        >
+                            Guardar Producto
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</MainLayout>
+
+<div class="flex justify-center mb-4">
+    <button id="scrollToTop" class="py-2 px-4 bg-green-500 text-white rounded-md hover:bg-green-600">
+        Ir hacia arriba
+    </button>
+</div>
+
+<script>
+    // Import image optimization utilities
+    import { optimizeImage, getBase64Size } from '../utils/imageOptimizer';
+    
+    // Hacer la función renderProducts global para que SearchBar pueda usarla
+    window.renderProducts = function(products) {
+        const productsContainer = document.getElementById('productGallery');
+        if (!productsContainer) return;
+        
+        // Crear una copia del array y revertirlo para la visualización
+        const reversedProducts = [...products].reverse();
+        
+        productsContainer.innerHTML = reversedProducts.map((product, index) => `
+            <div class="bg-white border rounded-lg overflow-hidden flex flex-col h-[280px] relative group">
+                <div class="block h-[200px] overflow-hidden bg-gray-50 relative">
+                    <div class="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                        <button 
+                            onclick="editProduct(${products.length - 1 - index})"
+                            class="p-2 bg-blue-500 text-white rounded-full hover:bg-blue-600"
+                            title="Editar producto"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                            </svg>
+                        </button>
+                        <button 
+                            onclick="deleteProduct(${products.length - 1 - index})"
+                            class="p-2 bg-red-500 text-white rounded-full hover:bg-red-600"
+                            title="Borrar producto"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
+                            </svg>
+                        </button>
+                    </div>
+                    <img 
+                        src="${product.image}" 
+                        alt="${product.title}" 
+                        class="w-full h-full object-cover"
+                    >
+                </div>
+                <div class="p-2 mt-auto">
+                    <h3 class="font-medium text-sm text-center line-clamp-2">${product.title}</h3>
+                </div>
+            </div>
+        `).join('');
+    };
+
+    // Función para editar producto
+    window.editProduct = function(index) {
+        const products = JSON.parse(localStorage.getItem('products') || '[]');
+        const product = products[index];
+        
+        if (product) {
+            editingIndex = index;
+            document.getElementById('title').value = product.title;
+            document.getElementById('urlUSA').value = product.urlUSA;
+            document.getElementById('urlMexico').value = product.urlMexico;
+            
+            // Actualizar título del modal
+            document.querySelector('#uploadModal h2').textContent = 'Editar Producto';
+            
+            // Mostrar el modal
+            modal.classList.remove('hidden');
+        }
+    };
+
+    // Función para borrar producto individual
+    window.deleteProduct = function(index) {
+        if (confirm('¿Estás seguro de que quieres borrar este producto? Esta acción no se puede deshacer.')) {
+            const products = JSON.parse(localStorage.getItem('products') || '[]');
+            products.splice(index, 1);
+            localStorage.setItem('products', JSON.stringify(products));
+            loadProducts();
+        }
+    };
+
+    // Cargar productos
+    function loadProducts(searchTerm = '') {
+        const products = JSON.parse(localStorage.getItem('products') || '[]');
+        
+        if (searchTerm) {
+            const normalizedSearch = normalizeText(searchTerm);
+            const filteredProducts = products.filter(product => {
+                const normalizedTitle = normalizeText(product.title);
+                return normalizedTitle.includes(normalizedSearch);
+            });
+            window.renderProducts(filteredProducts);
+        } else {
+            window.renderProducts(products);
+        }
+    }
+
+    // Manejar búsqueda
+    const searchInput = document.getElementById('adminSearchInput');
+    if (searchInput) {
+        let debounceTimer;
+        searchInput.addEventListener('input', (e) => {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => {
+                loadProducts(e.target.value.trim());
+            }, 300);
+        });
+
+        // Limpiar búsqueda cuando se borre el campo
+        searchInput.addEventListener('search', (e) => {
+            if (!e.target.value) {
+                loadProducts();
+            }
+        });
+    }
+
+    // Funcionalidad del modal
+    const modal = document.getElementById('uploadModal');
+    const openModalBtn = document.getElementById('openUploadModal');
+    const closeModalBtn = document.getElementById('closeModal');
+
+    openModalBtn.addEventListener('click', () => {
+        modal.classList.remove('hidden');
+    });
+
+    closeModalBtn.addEventListener('click', () => {
+        modal.classList.add('hidden');
+        form.reset();
+    });
+
+    // Cerrar modal al hacer clic fuera
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            modal.classList.add('hidden');
+            form.reset();
+        }
+    });
+
+    // Handle form submission
+    const form = document.getElementById('uploadForm');
+    let editingIndex = null;
+
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const products = JSON.parse(localStorage.getItem('products') || '[]');
+        const title = document.getElementById('title').value;
+        const urlUSA = document.getElementById('urlUSA').value;
+        const urlMexico = document.getElementById('urlMexico').value;
+        const imageInput = document.getElementById('image');
+        const imageFile = imageInput.files[0];
+        
+        try {
+            let imageData = null;
+            if (imageFile) {
+                imageData = await optimizeImage(imageFile);
+            }
+            
+            if (editingIndex !== null) {
+                // Actualizar producto existente
+                products[editingIndex] = {
+                    ...products[editingIndex],
+                    title,
+                    urlUSA,
+                    urlMexico,
+                    ...(imageData ? { image: imageData } : {}) // Solo actualizar imagen si se subió una nueva
+                };
+                editingIndex = null;
+            } else {
+                // Agregar nuevo producto
+                products.push({
+                    title,
+                    urlUSA,
+                    urlMexico,
+                    image: imageData || null
+                });
+            }
+            
+            localStorage.setItem('products', JSON.stringify(products));
+            loadProducts();
+            form.reset();
+            modal.classList.add('hidden');
+            
+            // Restablecer título del modal
+            document.querySelector('#uploadModal h2').textContent = 'Subir Nuevo Producto';
+        } catch (error) {
+            console.error('Error al procesar el producto:', error);
+            alert('Error al guardar el producto. Por favor intenta de nuevo.');
+        }
+    });
+
+    // Reset form on modal close
+    closeModalBtn.addEventListener('click', () => {
+        modal.classList.add('hidden');
+        form.reset();
+        editingIndex = null;
+        document.querySelector('#uploadModal h2').textContent = 'Subir Nuevo Producto';
+    });
+
+    // Reset form on click outside modal
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            modal.classList.add('hidden');
+            form.reset();
+            editingIndex = null;
+            document.querySelector('#uploadModal h2').textContent = 'Subir Nuevo Producto';
+        }
+    });
+
+    // Preview de imagen
+    document.getElementById('image').addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            try {
+                const optimizedImage = await optimizeImage(file);
+                const previewImage = document.createElement('img');
+                previewImage.src = optimizedImage;
+                previewImage.alt = 'Vista previa del producto';
+                previewImage.classList.add('h-32', 'object-contain');
+                const imagePreviewContainer = document.getElementById('image').parentElement;
+                imagePreviewContainer.appendChild(previewImage);
+            } catch (error) {
+                console.error('Error al procesar la imagen:', error);
+                alert('Error al procesar la imagen. Por favor, intenta con otra imagen.');
+            }
+        }
+    });
+
+    // Cargar productos inicialmente
+    loadProducts();
+
+    document.getElementById('scrollToBottom').addEventListener('click', function() {
+        window.scrollTo({
+            top: document.body.scrollHeight,
+            behavior: 'smooth'
+        });
+    });
+
+    document.getElementById('scrollToTop').addEventListener('click', function() {
+        window.scrollTo({
+            top: 0,
+            behavior: 'smooth'
+        });
+    });
+
+    // Funcionalidad para borrar localStorage
+    document.getElementById('clearStorage').addEventListener('click', () => {
+        if (confirm('¿Estás seguro de que quieres borrar todos los productos? Esta acción no se puede deshacer.')) {
+            localStorage.removeItem('products');
+            loadProducts(); // Recargar la galería vacía
+            alert('Todos los productos han sido borrados.');
+        }
+    });
+</script>

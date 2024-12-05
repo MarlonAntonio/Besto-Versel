@@ -1,0 +1,26 @@
+---
+const { placeholder = 'Buscar...', id = 'searchInput', 'aria-label': ariaLabel = 'Buscar' } = Astro.props;
+---
+
+<div class="relative mb-4">
+    <input
+        type="search"
+        id={id}
+        placeholder={placeholder}
+        aria-label={ariaLabel}
+        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+    />
+</div>
+
+<script>
+    // La lógica de búsqueda se ha movido al archivo principal para mantener la consistencia del orden
+</script>
+
+<script>
+    // Define the renderProducts type for TypeScript
+    declare global {
+        interface Window {
+            renderProducts?: (products: any[]) => void;
+        }
+    }
+</script>

@@ -1,0 +1,77 @@
+---
+import DynamicHeader from './DynamicHeader';
+
+// Valores por defecto
+const defaultConfig = {
+    title: "Mi Tienda Online",
+    subtitle: "Productos + Ofertas",
+    email: "contacto@ejemplo.com",
+    profileImage: "/default-profile.jpg",
+    socialLinks: {}
+};
+---
+
+<DynamicHeader client:load />
+
+<!-- Font Awesome -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
+
+<script>
+function updateHeader() {
+    const savedConfig = localStorage.getItem('headerConfig');
+    const config = savedConfig ? JSON.parse(savedConfig) : defaultConfig;
+
+    // Actualizar elementos
+    document.getElementById('header-title').textContent = config.title;
+    document.getElementById('header-subtitle').textContent = config.subtitle;
+    document.getElementById('header-image').src = config.profileImage || "/default-profile.jpg";
+    document.getElementById('header-image').alt = config.title;
+    
+    const emailLink = document.getElementById('header-email');
+    const emailText = document.getElementById('email-text');
+    emailLink.href = `mailto:${config.email}`;
+    emailText.textContent = config.email;
+
+    // Actualizar redes sociales
+    const socialLinksContainer = document.getElementById('social-links');
+    socialLinksContainer.innerHTML = ''; // Limpiar links existentes
+
+    const socialNetworks = [
+        { key: 'instagram', icon: 'fab fa-instagram' },
+        { key: 'tiktok', icon: 'fab fa-tiktok' },
+        { key: 'facebook', icon: 'fab fa-facebook' },
+        { key: 'youtube', icon: 'fab fa-youtube' }
+    ];
+
+    socialNetworks.forEach(network => {
+        const url = config.socialLinks?.[network.key];
+        if (url) {
+            const link = document.createElement('a');
+            link.href = url;
+            link.className = 'text-2xl text-gray-300 hover:text-white hover:scale-110 transform transition-all';
+            link.target = '_blank';
+            link.rel = 'noopener noreferrer';
+            link.title = `Visitar ${network.key}`;
+            
+            const icon = document.createElement('i');
+            icon.className = network.icon;
+            link.appendChild(icon);
+            
+            socialLinksContainer.appendChild(link);
+        }
+    });
+}
+
+// Actualizar cuando se carga la página
+document.addEventListener('DOMContentLoaded', updateHeader);
+
+// Actualizar cuando cambia el localStorage
+window.addEventListener('storage', (e) => {
+    if (e.key === 'headerConfig') {
+        updateHeader();
+    }
+});
+
+// También actualizar cuando se guarda localmente
+window.addEventListener('headerConfigUpdated', updateHeader);
+</script>

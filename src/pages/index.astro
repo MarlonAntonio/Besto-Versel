@@ -1,11 +1,127 @@
 ---
-import Welcome from '../components/Welcome.astro';
-import Layout from '../layouts/Layout.astro';
+import MainLayout from '../layouts/MainLayout.astro';
+import SearchBar from '../components/SearchBar.astro';
 
-// Welcome to Astro! Wondering what to do next? Check out the Astro documentation at https://docs.astro.build
-// Don't want to use any of this? Delete everything in this file, the `assets`, `components`, and `layouts` directories, and start fresh.
+// Obtener la configuración del header guardada o usar valores por defecto
+const savedHeaderConfig = typeof localStorage !== 'undefined' 
+    ? JSON.parse(localStorage.getItem('headerConfig') || '{}')
+    : {};
+
+const headerConfig = {
+    title: savedHeaderConfig.title || "Mi Tienda Online",
+    subtitle: savedHeaderConfig.subtitle || "Productos + Ofertas ",
+    email: savedHeaderConfig.email || "tienda@ejemplo.com",
+    profileImage: savedHeaderConfig.profileImage || "/profile.jpg",
+    socialLinks: savedHeaderConfig.socialLinks || {}
+};
 ---
 
-<Layout>
-	<Welcome />
-</Layout>
+<MainLayout title="Galería">
+    <div class="container mx-auto px-2 py-8">
+        <SearchBar id="searchInput" placeholder="Buscar productos en la galería..." />
+        
+        <div id="publicGallery" class="grid grid-cols-4 gap-2">
+            <!-- Products will be loaded here -->
+        </div>
+    </div>
+
+    <script>
+        // Función para normalizar texto (eliminar acentos)
+        function normalizeText(text) {
+            return text.toLowerCase()
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '');
+        }
+
+        // Hacer la función renderProducts global para que SearchBar pueda usarla
+        window.renderProducts = function(products) {
+            const gallery = document.getElementById('publicGallery');
+            if (!gallery) return;
+            
+            gallery.innerHTML = products.map(product => `
+                <div class="bg-white border rounded-lg overflow-hidden aspect-[3/4] relative group">
+                    <a href="${product.url}" target="_blank" class="block w-full h-full bg-gray-50">
+                        <img 
+                            src="${product.image}" 
+                            alt="${product.title}" 
+                            class="w-full h-full object-cover"
+                        >
+                        <div class="absolute bottom-0 left-0 right-0 bg-white bg-opacity-75 backdrop-blur-sm p-[1px] md:p-2">
+                            <h3 class="text-black font-bold text-[1px] md:text-[4px] text-center line-clamp-2">${product.title}</h3>
+                        </div>
+                    </a>
+                </div>
+            `).join('');
+        };
+
+        function loadProducts(searchTerm = '') {
+            const products = JSON.parse(localStorage.getItem('products') || '[]');
+            let filteredProducts = [...products];
+
+            if (searchTerm) {
+                const normalizedSearch = normalizeText(searchTerm);
+                filteredProducts = products.filter(product => {
+                    const normalizedTitle = normalizeText(product.title);
+                    return normalizedTitle.includes(normalizedSearch);
+                });
+            }
+
+            // Invertir el array para mostrar los productos más recientes primero
+            filteredProducts.reverse();
+
+            // Detectar el país del usuario usando la dirección IP
+            fetch('https://ipapi.co/json/')
+                .then(response => response.json())
+                .then(data => {
+                    const country = data.country;
+                    
+                    // Asignar URLs según el país
+                    filteredProducts.forEach(product => {
+                        if (country === 'US') {
+                            product.url = product.urlUSA;
+                        } else if (country === 'MX') {
+                            product.url = product.urlMexico;
+                        } else {
+                            product.url = product.urlUSA; // Default to USA
+                        }
+                    });
+                    
+                    window.renderProducts(filteredProducts);
+                })
+                .catch(error => {
+                    console.error('Error detecting location:', error);
+                    // Fallback a México
+                    filteredProducts.forEach(product => {
+                        product.url = product.urlMexico;
+                    });
+                    window.renderProducts(filteredProducts);
+                });
+        }
+
+        // Manejar búsqueda
+        const searchInput = document.getElementById('searchInput');
+        if (searchInput) {
+            let debounceTimer;
+            searchInput.addEventListener('input', (e) => {
+                clearTimeout(debounceTimer);
+                debounceTimer = setTimeout(() => {
+                    loadProducts(e.target.value.trim());
+                }, 300);
+            });
+
+            // Limpiar búsqueda cuando se borre el campo
+            searchInput.addEventListener('search', (e) => {
+                if (!e.target.value) {
+                    loadProducts();
+                }
+            });
+        }
+
+        // Initial load
+        loadProducts();
+    </script>
+    <section class="py-8">
+        <div class="grid grid-cols-2 gap-2 px-2">
+        </div>
+    </section>
+</MainLayout>
