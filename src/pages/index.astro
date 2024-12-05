@@ -40,7 +40,7 @@ const headerConfig = {
             
             gallery.innerHTML = products.map(product => `
                 <div class="bg-white border rounded-lg overflow-hidden aspect-[3/4] relative group">
-                    <a href="${product.url}" target="_blank" class="block w-full h-full bg-gray-50">
+                    <a href="${product.url || product.urlMexico}" target="_blank" class="block w-full h-full bg-gray-50">
                         <img 
                             src="${product.image}" 
                             alt="${product.title}" 
@@ -55,7 +55,16 @@ const headerConfig = {
         };
 
         function loadProducts(searchTerm = '') {
-            const products = JSON.parse(localStorage.getItem('products') || '[]');
+            let products = [];
+            
+            // Verificar si estamos en el navegador
+            if (typeof window !== 'undefined') {
+                const storedProducts = localStorage.getItem('products');
+                if (storedProducts) {
+                    products = JSON.parse(storedProducts);
+                }
+            }
+
             let filteredProducts = [...products];
 
             if (searchTerm) {
@@ -98,27 +107,30 @@ const headerConfig = {
                 });
         }
 
-        // Manejar búsqueda
-        const searchInput = document.getElementById('searchInput');
-        if (searchInput) {
-            let debounceTimer;
-            searchInput.addEventListener('input', (e) => {
-                clearTimeout(debounceTimer);
-                debounceTimer = setTimeout(() => {
-                    loadProducts(e.target.value.trim());
-                }, 300);
-            });
+        // Asegurarse de que el código solo se ejecute en el navegador
+        if (typeof window !== 'undefined') {
+            // Manejar búsqueda
+            const searchInput = document.getElementById('searchInput');
+            if (searchInput) {
+                let debounceTimer;
+                searchInput.addEventListener('input', (e) => {
+                    clearTimeout(debounceTimer);
+                    debounceTimer = setTimeout(() => {
+                        loadProducts(e.target.value.trim());
+                    }, 300);
+                });
 
-            // Limpiar búsqueda cuando se borre el campo
-            searchInput.addEventListener('search', (e) => {
-                if (!e.target.value) {
-                    loadProducts();
-                }
-            });
+                // Limpiar búsqueda cuando se borre el campo
+                searchInput.addEventListener('search', (e) => {
+                    if (!e.target.value) {
+                        loadProducts();
+                    }
+                });
+            }
+
+            // Initial load
+            loadProducts();
         }
-
-        // Initial load
-        loadProducts();
     </script>
     <section class="py-8">
         <div class="grid grid-cols-2 gap-2 px-2">
