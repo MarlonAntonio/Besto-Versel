@@ -26,7 +26,7 @@ const headerConfig = {
     </div>
 
     <script>
-        import { getProductsFromBlob } from '../utils/productStorage';
+        import { getProducts } from '../utils/productStorage';
 
         // Función para normalizar texto (eliminar acentos)
         function normalizeText(text) {
@@ -58,7 +58,7 @@ const headerConfig = {
         };
 
         async function loadProducts(searchTerm = '') {
-            let products = await getProductsFromBlob();
+            let products = await getProducts();
             let filteredProducts = [...products];
 
             if (searchTerm) {

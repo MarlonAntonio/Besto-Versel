@@ -1,36 +1,35 @@
-import { put, list, del } from '@vercel/blob';
-
-export async function uploadProductsToBlob(products) {
+// Función para guardar productos
+export async function saveProducts(products) {
     try {
-        // Convertir los productos a JSON
-        const productsJson = JSON.stringify(products);
+        const response = await fetch('/api/products', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(products)
+        });
         
-        // Crear un Blob con los datos
-        const blob = new Blob([productsJson], { type: 'application/json' });
+        if (!response.ok) {
+            throw new Error('Error saving products');
+        }
         
-        // Subir a Vercel Blob
-        const { url } = await put('products.json', blob, { access: 'public' });
-        
-        return url;
+        return await response.json();
     } catch (error) {
-        console.error('Error uploading products:', error);
+        console.error('Error saving products:', error);
         throw error;
     }
 }
 
-export async function getProductsFromBlob() {
+// Función para obtener productos
+export async function getProducts() {
     try {
-        const { blobs } = await list();
-        const productBlob = blobs.find(blob => blob.pathname === 'products.json');
+        const response = await fetch('/api/products');
         
-        if (!productBlob) {
-            return [];
+        if (!response.ok) {
+            throw new Error('Error fetching products');
         }
-
-        const response = await fetch(productBlob.url);
-        const products = await response.json();
         
-        return products;
+        return await response.json();
     } catch (error) {
         console.error('Error getting products:', error);
         return [];

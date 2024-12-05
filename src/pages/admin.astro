@@ -122,20 +122,21 @@ import SearchBar from '../components/SearchBar.astro';
 </div>
 
 <script>
-    import { uploadProductsToBlob, getProductsFromBlob } from '../utils/productStorage';
+    import { saveProducts, getProducts } from '../utils/productStorage';
+    import '../scripts/headerEditor';
 
     let products = [];
 
     async function loadProducts() {
-        products = await getProductsFromBlob();
+        products = await getProducts();
         renderProducts();
     }
 
-    function renderProducts() {
+    function renderProducts(filteredProducts = products) {
         const gallery = document.getElementById('gallery');
         if (!gallery) return;
         
-        gallery.innerHTML = products.map((product, index) => `
+        gallery.innerHTML = filteredProducts.map((product, index) => `
             <div class="bg-white border rounded-lg overflow-hidden aspect-[3/4] relative group">
                 <img 
                     src="${product.image}" 
@@ -159,7 +160,7 @@ import SearchBar from '../components/SearchBar.astro';
 
     window.deleteProduct = async function(index) {
         products.splice(index, 1);
-        await uploadProductsToBlob(products);
+        await saveProducts(products);
         renderProducts();
     }
 
@@ -182,7 +183,7 @@ import SearchBar from '../components/SearchBar.astro';
         };
 
         products.push(newProduct);
-        await uploadProductsToBlob(products);
+        await saveProducts(products);
         
         titleInput.value = '';
         imageInput.value = '';
@@ -192,7 +193,6 @@ import SearchBar from '../components/SearchBar.astro';
         renderProducts();
     }
 
-    // Cargar productos al iniciar
     document.addEventListener('DOMContentLoaded', loadProducts);
 
     // Manejar búsqueda
@@ -202,16 +202,14 @@ import SearchBar from '../components/SearchBar.astro';
         searchInput.addEventListener('input', (e) => {
             clearTimeout(debounceTimer);
             debounceTimer = setTimeout(() => {
-                const searchTerm = e.target.value.trim();
-                const filteredProducts = products.filter(product => {
-                    const normalizedTitle = product.title.toLowerCase();
-                    return normalizedTitle.includes(searchTerm.toLowerCase());
-                });
+                const searchTerm = e.target.value.trim().toLowerCase();
+                const filteredProducts = products.filter(product => 
+                    product.title.toLowerCase().includes(searchTerm)
+                );
                 renderProducts(filteredProducts);
             }, 300);
         });
 
-        // Limpiar búsqueda cuando se borre el campo
         searchInput.addEventListener('search', (e) => {
             if (!e.target.value) {
                 renderProducts();
@@ -264,7 +262,7 @@ import SearchBar from '../components/SearchBar.astro';
     // Funcionalidad para borrar localStorage
     document.getElementById('clearStorage').addEventListener('click', async () => {
         if (confirm('¿Estás seguro de que quieres borrar todos los productos? Esta acción no se puede deshacer.')) {
-            await uploadProductsToBlob([]);
+            await saveProducts([]);
             loadProducts(); // Recargar la galería vacía
             alert('Todos los productos han sido borrados.');
         }
