@@ -1,7 +1,7 @@
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-this';
+const JWT_SECRET = process.env.JWT_SECRET || 'besto-pagina-secret-key-90gupi90-production';
 const HASHED_PASSWORD = '$2a$10$K.RrQqkDO0rKZXYW9jHcXOMWlvKsxOY7M2P3bVGNSXEGO0YoI.0Uy'; // hash of '90gupi90'
 const TOKEN_EXPIRY = '24h';
 const REFRESH_THRESHOLD = 60 * 60; // 1 hora en segundos
