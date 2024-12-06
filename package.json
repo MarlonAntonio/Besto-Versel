@@ -15,12 +15,13 @@
     "@astrojs/tailwind": "^5.0.0",
     "@astrojs/vercel": "^5.0.0",
     "@vercel/analytics": "^1.1.1",
-    "@vercel/blob": "^0.27.0",
+    "@vercel/blob": "^0.15.1",
     "@vercel/speed-insights": "^1.0.2",
-    "astro": "^3.0.0",
+    "astro": "^4.0.0",
     "preact": "^10.19.3",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
+    "sharp": "^0.33.0",
     "tailwindcss": "^3.4.0"
   }
 }
