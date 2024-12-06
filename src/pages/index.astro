@@ -1,6 +1,7 @@
 ---
 import MainLayout from '../layouts/MainLayout.astro';
 import SearchBar from '../components/SearchBar.astro';
+import { Image } from 'astro:assets';
 
 // Obtener la configuración del header guardada o usar valores por defecto
 const savedHeaderConfig = typeof localStorage !== 'undefined' 
@@ -20,7 +21,7 @@ const headerConfig = {
     <div class="container mx-auto px-2 py-8">
         <SearchBar id="searchInput" placeholder="Buscar productos en la galería..." />
         
-        <div id="publicGallery" class="grid grid-cols-4 gap-2">
+        <div id="publicGallery" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
             <!-- Products will be loaded here -->
         </div>
     </div>
@@ -35,6 +36,26 @@ const headerConfig = {
                 .replace(/[\u0300-\u036f]/g, '');
         }
 
+        // Implementar intersection observer para lazy loading
+        const observerOptions = {
+            root: null,
+            rootMargin: '50px',
+            threshold: 0.1
+        };
+
+        const imageObserver = new IntersectionObserver((entries, observer) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    const img = entry.target;
+                    if (img.dataset.src) {
+                        img.src = img.dataset.src;
+                        img.removeAttribute('data-src');
+                        observer.unobserve(img);
+                    }
+                }
+            });
+        }, observerOptions);
+
         // Hacer la función renderProducts global para que SearchBar pueda usarla
         window.renderProducts = function(products) {
             const gallery = document.getElementById('publicGallery');
@@ -43,19 +64,56 @@ const headerConfig = {
             gallery.innerHTML = products.map(product => `
                 <div class="bg-white border rounded-lg overflow-hidden aspect-[3/4] relative group">
                     <a href="${product.url || product.urlMexico}" target="_blank" class="block w-full h-full bg-gray-50">
-                        <img 
+                        <Image 
                             src="${product.image}" 
                             alt="${product.title}" 
-                            class="w-full h-full object-cover"
+                            class="w-full h-full object-cover opacity-0 transition-opacity duration-300"
                             loading="lazy"
+                            width="300"
+                            height="400"
+                            onload="this.classList.remove('opacity-0')"
                         >
-                        <div class="absolute bottom-0 left-0 right-0 bg-white bg-opacity-75 backdrop-blur-sm p-[1px] md:p-2">
-                            <h3 class="text-black font-bold text-[1px] md:text-[4px] text-center line-clamp-2">${product.title}</h3>
+                        <div class="absolute bottom-0 left-0 right-0 bg-white bg-opacity-75 backdrop-blur-sm p-2">
+                            <h3 class="text-black font-bold text-sm md:text-base text-center line-clamp-2">${product.title}</h3>
                         </div>
                     </a>
                 </div>
             `).join('');
+
+            // Observar todas las imágenes para lazy loading
+            gallery.querySelectorAll('img[data-src]').forEach(img => {
+                imageObserver.observe(img);
+            });
         };
+
+        // Cache para almacenar la ubicación del usuario
+        let locationCache = null;
+        const LOCATION_CACHE_TIME = 1000 * 60 * 60; // 1 hora
+
+        async function getUserLocation() {
+            // Verificar si hay cache válido
+            const cachedLocation = localStorage.getItem('userLocation');
+            if (cachedLocation) {
+                const { data, timestamp } = JSON.parse(cachedLocation);
+                if (Date.now() - timestamp < LOCATION_CACHE_TIME) {
+                    return data;
+                }
+            }
+
+            try {
+                const response = await fetch('https://ipapi.co/json/');
+                const data = await response.json();
+                // Guardar en cache
+                localStorage.setItem('userLocation', JSON.stringify({
+                    data,
+                    timestamp: Date.now()
+                }));
+                return data;
+            } catch (error) {
+                console.error('Error detecting location:', error);
+                return { country: 'MX' }; // Fallback a México
+            }
+        }
 
         async function loadProducts(searchTerm = '') {
             let products = await getProducts();
@@ -72,57 +130,32 @@ const headerConfig = {
             // Invertir el array para mostrar los productos más recientes primero
             filteredProducts.reverse();
 
-            // Detectar el país del usuario usando la dirección IP
-            try {
-                const response = await fetch('https://ipapi.co/json/');
-                const data = await response.json();
-                const country = data.country;
-                
-                // Asignar URLs según el país
-                filteredProducts.forEach(product => {
-                    if (country === 'US') {
-                        product.url = product.urlUSA;
-                    } else if (country === 'MX') {
-                        product.url = product.urlMexico;
-                    } else {
-                        product.url = product.urlUSA; // Default to USA
-                    }
-                });
-                
-                window.renderProducts(filteredProducts);
-            } catch (error) {
-                console.error('Error detecting location:', error);
-                // Fallback a México
-                filteredProducts.forEach(product => {
-                    product.url = product.urlMexico;
-                });
-                window.renderProducts(filteredProducts);
-            }
+            // Obtener ubicación del usuario
+            const { country } = await getUserLocation();
+            
+            // Asignar URLs según el país
+            filteredProducts.forEach(product => {
+                product.url = country === 'US' ? product.urlUSA : product.urlMexico;
+            });
+            
+            window.renderProducts(filteredProducts);
         }
 
-        // Asegurarse de que el código solo se ejecute en el navegador
-        if (typeof window !== 'undefined') {
-            // Manejar búsqueda
-            const searchInput = document.getElementById('searchInput');
-            if (searchInput) {
-                let debounceTimer;
-                searchInput.addEventListener('input', (e) => {
-                    clearTimeout(debounceTimer);
-                    debounceTimer = setTimeout(() => {
-                        loadProducts(e.target.value.trim());
-                    }, 300);
-                });
-
-                // Limpiar búsqueda cuando se borre el campo
-                searchInput.addEventListener('search', (e) => {
-                    if (!e.target.value) {
-                        loadProducts();
-                    }
-                });
-            }
-
-            // Initial load
+        // Inicializar la carga de productos
+        document.addEventListener('DOMContentLoaded', () => {
             loadProducts();
+        });
+
+        // Agregar debounce para la búsqueda
+        let searchTimeout;
+        const searchInput = document.getElementById('searchInput');
+        if (searchInput) {
+            searchInput.addEventListener('input', (e) => {
+                clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(() => {
+                    loadProducts(e.target.value);
+                }, 300);
+            });
         }
     </script>
     <section class="py-8">
