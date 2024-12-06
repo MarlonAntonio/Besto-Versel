@@ -1,4 +1,5 @@
 import { uploadImageToBlob } from './blobStorage';
+import { processAndUploadImage } from './imageOptimizer';
 
 // Cache de productos para evitar llamadas innecesarias a la API
 let productsCache = null;
@@ -16,24 +17,30 @@ function showNotification(message, type = 'info') {
     setTimeout(() => notification.remove(), 3000);
 }
 
-// Función para guardar productos
+/**
+ * Saves products to API and handles image optimization
+ * @param {Array} products - Array of products to save
+ * @returns {Promise<Object>} - Result of the save operation
+ */
 export async function saveProducts(products) {
     try {
-        showNotification('Guardando productos...', 'info');
-
-        // Procesar cada producto para guardar las imágenes en Vercel Blob
+        // Process any new images that are in base64 format
         const processedProducts = await Promise.all(products.map(async (product) => {
-            try {
-                // Si la imagen es un data URL, subirla a Vercel Blob
-                if (product.image && product.image.startsWith('data:image')) {
-                    const imageUrl = await uploadImageToBlob(product.image);
-                    return { ...product, image: imageUrl };
-                }
+            // If the image is already a URL, don't process it again
+            if (product.image.startsWith('http')) {
                 return product;
-            } catch (error) {
-                console.error('Error processing product image:', error);
-                throw new Error(`Error al procesar la imagen de ${product.title}`);
             }
+
+            // Process and upload the image
+            const imageUrl = await processAndUploadImage(
+                product.image,
+                product.title.toLowerCase().replace(/[^a-z0-9]/g, '-')
+            );
+
+            return {
+                ...product,
+                image: imageUrl
+            };
         }));
 
         const response = await fetch('/api/products', {
@@ -59,12 +66,16 @@ export async function saveProducts(products) {
         return result;
     } catch (error) {
         console.error('Error saving products:', error);
-        showNotification(error.message || 'Error al guardar los productos', 'error');
+        showNotification('Error al guardar los productos', 'error');
         throw error;
     }
 }
 
-// Función para obtener productos
+/**
+ * Retrieves products from API
+ * @param {boolean} [forceRefresh=false] - Whether to force a refresh of the data
+ * @returns {Promise<Array>} - Array of products
+ */
 export async function getProducts(forceRefresh = false) {
     try {
         // Usar cache si está disponible y no ha expirado
@@ -108,48 +119,18 @@ export async function getProducts(forceRefresh = false) {
     }
 }
 
-// Función para optimizar imágenes antes de guardar
-export async function optimizeImageForStorage(imageDataUrl) {
+/**
+ * Optimizes an image for storage
+ * @param {string} imageData - Base64 image data
+ * @returns {Promise<string>} - Optimized image data
+ */
+export async function optimizeImageForStorage(imageData) {
     try {
-        // Crear un elemento imagen para manipular la imagen
-        const img = new Image();
-        await new Promise((resolve, reject) => {
-            img.onload = resolve;
-            img.onerror = reject;
-            img.src = imageDataUrl;
-        });
-
-        // Crear un canvas para la optimización
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-
-        // Calcular dimensiones máximas manteniendo el aspect ratio
-        const MAX_WIDTH = 800;
-        const MAX_HEIGHT = 800;
-        let width = img.width;
-        let height = img.height;
-
-        if (width > height) {
-            if (width > MAX_WIDTH) {
-                height = Math.round((height * MAX_WIDTH) / width);
-                width = MAX_WIDTH;
-            }
-        } else {
-            if (height > MAX_HEIGHT) {
-                width = Math.round((width * MAX_HEIGHT) / height);
-                height = MAX_HEIGHT;
-            }
-        }
-
-        // Configurar el canvas con las nuevas dimensiones
-        canvas.width = width;
-        canvas.height = height;
-
-        // Dibujar la imagen optimizada
-        ctx.drawImage(img, 0, 0, width, height);
-
-        // Convertir a JPEG con calidad 0.8 para reducir el tamaño
-        return canvas.toDataURL('image/jpeg', 0.8);
+        const imageUrl = await processAndUploadImage(
+            imageData,
+            'temp-' + new Date().getTime()
+        );
+        return imageUrl;
     } catch (error) {
         console.error('Error optimizing image:', error);
         showNotification('Error al optimizar la imagen', 'error');

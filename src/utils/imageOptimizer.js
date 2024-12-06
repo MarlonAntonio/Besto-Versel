@@ -1,3 +1,6 @@
+import Sharp from 'sharp';
+import { put } from '@vercel/blob';
+
 /**
  * Optimiza una imagen redimensionándola y comprimiéndola
  * @param {File} file - El archivo de imagen a optimizar
@@ -103,5 +106,86 @@ export function getBase64Size(base64String) {
         return `${(sizeInBytes / 1024).toFixed(2)}KB`;
     } else {
         return `${(sizeInBytes / 1024 / 1024).toFixed(2)}MB`;
+    }
+}
+
+/**
+ * Optimizes an image by resizing and compressing it
+ * @param {string} imageData - Base64 encoded image data
+ * @returns {Promise<string>} - Optimized base64 encoded image data
+ */
+export async function optimizeImageWithSharp(imageData) {
+    try {
+        // Remove data URL prefix if present
+        const base64Data = imageData.replace(/^data:image\/\w+;base64,/, '');
+        const buffer = Buffer.from(base64Data, 'base64');
+
+        // Process image with Sharp
+        const optimizedBuffer = await Sharp(buffer)
+            .resize(800, 800, { // Resize to max dimensions while maintaining aspect ratio
+                fit: 'inside',
+                withoutEnlargement: true
+            })
+            .jpeg({ // Convert to JPEG and compress
+                quality: 80,
+                progressive: true
+            })
+            .toBuffer();
+
+        // Convert back to base64
+        return `data:image/jpeg;base64,${optimizedBuffer.toString('base64')}`;
+    } catch (error) {
+        console.error('Error optimizing image:', error);
+        throw new Error('Failed to optimize image');
+    }
+}
+
+/**
+ * Uploads an optimized image to Vercel Blob storage
+ * @param {string} imageData - Base64 encoded image data
+ * @param {string} filename - Name for the uploaded file
+ * @returns {Promise<string>} - URL of the uploaded image
+ */
+export async function uploadToBlob(imageData, filename) {
+    try {
+        // Remove data URL prefix if present
+        const base64Data = imageData.replace(/^data:image\/\w+;base64,/, '');
+        const buffer = Buffer.from(base64Data, 'base64');
+
+        // Generate a unique filename with timestamp
+        const timestamp = new Date().getTime();
+        const uniqueFilename = `products/${timestamp}-${filename}.jpg`;
+
+        // Upload to Vercel Blob
+        const { url } = await put(uniqueFilename, buffer, {
+            access: 'public',
+            contentType: 'image/jpeg'
+        });
+
+        return url;
+    } catch (error) {
+        console.error('Error uploading to Vercel Blob:', error);
+        throw new Error('Failed to upload image to storage');
+    }
+}
+
+/**
+ * Processes and uploads an image
+ * @param {string} imageData - Base64 encoded image data
+ * @param {string} filename - Name for the uploaded file
+ * @returns {Promise<string>} - URL of the processed and uploaded image
+ */
+export async function processAndUploadImage(imageData, filename) {
+    try {
+        // First optimize the image
+        const optimizedImage = await optimizeImageWithSharp(imageData);
+        
+        // Then upload to Vercel Blob
+        const imageUrl = await uploadToBlob(optimizedImage, filename);
+        
+        return imageUrl;
+    } catch (error) {
+        console.error('Error processing and uploading image:', error);
+        throw new Error('Failed to process and upload image');
     }
 }
