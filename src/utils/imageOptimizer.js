@@ -1,5 +1,4 @@
 import Sharp from 'sharp';
-import { put } from '@vercel/blob';
 
 /**
  * Optimiza una imagen redimensionándola y comprimiéndola
@@ -141,6 +140,41 @@ export async function optimizeImageWithSharp(imageData) {
 }
 
 /**
+ * Uploads an image to storage via API
+ * @param {string} imageData - Base64 encoded image data
+ * @param {string} filename - Name for the uploaded file
+ * @returns {Promise<string>} - URL of the uploaded image
+ */
+export async function uploadImage(imageData, filename) {
+    try {
+        const timestamp = new Date().getTime();
+        const uniqueFilename = `${timestamp}-${filename}.jpg`;
+
+        const response = await fetch('/api/upload', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                image: imageData,
+                filename: uniqueFilename
+            })
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.message || 'Failed to upload image');
+        }
+
+        const { data } = await response.json();
+        return data.url;
+    } catch (error) {
+        console.error('Error uploading image:', error);
+        throw new Error('Failed to upload image to storage');
+    }
+}
+
+/**
  * Uploads an optimized image to Vercel Blob storage
  * @param {string} imageData - Base64 encoded image data
  * @param {string} filename - Name for the uploaded file
@@ -180,8 +214,8 @@ export async function processAndUploadImage(imageData, filename) {
         // First optimize the image
         const optimizedImage = await optimizeImageWithSharp(imageData);
         
-        // Then upload to Vercel Blob
-        const imageUrl = await uploadToBlob(optimizedImage, filename);
+        // Then upload via API
+        const imageUrl = await uploadImage(optimizedImage, filename);
         
         return imageUrl;
     } catch (error) {
