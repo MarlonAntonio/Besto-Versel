@@ -4,12 +4,6 @@ import HeaderEditor from '../components/HeaderEditor';
 import SearchBar from '../components/SearchBar.astro';
 ---
 
-<div class="flex justify-center mb-4">
-    <button id="scrollToBottom" class="py-2 px-4 bg-blue-700 text-white rounded-md hover:bg-blue-800 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
-        Ir hasta abajo
-    </button>
-</div>
-
 <MainLayout title="Panel de Administración">
     <div class="container mx-auto px-4 py-8">
         <div class="flex justify-between items-center mb-8">
@@ -47,13 +41,13 @@ import SearchBar from '../components/SearchBar.astro';
                 id="adminSearchInput"
                 aria-label="Buscar productos"
             />
-            <div id="gallery" class="grid grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-2 sm:gap-4">
+            <div id="gallery" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                 <!-- Products will be loaded here -->
             </div>
         </div>
 
         <!-- Modal de subida de productos -->
-        <div id="uploadModal" class="fixed inset-0 bg-gray-900 bg-opacity-50 hidden flex items-center justify-center">
+        <div id="uploadModal" class="fixed inset-0 bg-gray-900 bg-opacity-50 hidden flex items-center justify-center z-50">
             <div class="bg-white rounded-lg p-6 max-w-xl w-full max-h-[90vh] overflow-y-auto relative">
                 <button id="closeModal" class="absolute top-4 right-4 text-gray-700 hover:text-gray-900">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -98,227 +92,228 @@ import SearchBar from '../components/SearchBar.astro';
                     </div>
                     
                     <div>
-                        <label for="image" class="block text-sm font-medium text-gray-900">Imagen del Producto</label>
+                        <label for="image" class="block text-sm font-medium text-gray-900">Imagen</label>
                         <input
                             type="file"
                             id="image"
                             name="image"
                             accept="image/*"
                             required
-                            class="mt-1 block w-full text-gray-900"
+                            class="mt-1 block w-full"
                         />
-                        <img id="imagePreview" alt="Vista previa de la imagen" class="hidden mt-2 max-w-full h-auto rounded-lg" />
+                        <img id="imagePreview" class="mt-2 hidden max-w-full h-auto" alt="Vista previa" />
                     </div>
                     
-                    <button 
-                        type="submit"
-                        class="w-full py-2 px-4 bg-indigo-700 text-white rounded-md hover:bg-indigo-800 focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-                    >
-                        Guardar Producto
-                    </button>
+                    <div class="flex justify-end gap-4 mt-6">
+                        <button
+                            type="button"
+                            id="cancelUpload"
+                            class="py-2 px-4 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                        >
+                            Cancelar
+                        </button>
+                        <button
+                            type="submit"
+                            class="py-2 px-4 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                        >
+                            Guardar
+                        </button>
+                    </div>
                 </form>
             </div>
         </div>
     </div>
 </MainLayout>
 
-<div class="flex justify-center mb-4">
-    <button id="scrollToTop" class="py-2 px-4 bg-green-500 text-white rounded-md hover:bg-green-600">
-        Ir hacia arriba
-    </button>
-</div>
-
 <script>
     import { saveProducts, getProducts, optimizeImageForStorage } from '../utils/productStorage';
-    import '../scripts/headerEditor';
 
     let products = [];
+    const modal = document.getElementById('uploadModal');
+    const uploadForm = document.getElementById('uploadForm');
+    const imageInput = document.getElementById('image');
+    const imagePreview = document.getElementById('imagePreview');
+    const gallery = document.getElementById('gallery');
+    const searchInput = document.getElementById('adminSearchInput');
 
-    async function loadProducts() {
-        try {
-            products = await getProducts(true);
-            renderProducts();
-        } catch (error) {
-            console.error('Error loading products:', error);
-            alert('Error al cargar los productos');
+    // Función para mostrar/ocultar el modal
+    function toggleModal(show = true) {
+        if (modal) {
+            modal.style.display = show ? 'flex' : 'none';
+            if (!show && uploadForm) {
+                uploadForm.reset();
+                if (imagePreview) imagePreview.classList.add('hidden');
+            }
         }
     }
 
-    function renderProducts(productsToRender = products) {
-        const gallery = document.getElementById('gallery');
+    // Función para renderizar productos
+    function renderProducts(productsToRender) {
         if (!gallery) return;
 
         gallery.innerHTML = productsToRender.map((product, index) => `
-            <div class="relative group">
-                <img 
-                    src="${product.image}" 
-                    alt="${product.title}"
-                    class="w-full aspect-square object-cover rounded-lg"
-                />
-                <div class="absolute inset-0 bg-gray-900 bg-opacity-75 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+            <div class="bg-white border rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                <div class="aspect-w-1 aspect-h-1 bg-gray-200">
+                    <img 
+                        src="${product.image}" 
+                        alt="${product.title}"
+                        class="w-full h-full object-cover"
+                        loading="lazy"
+                    >
+                </div>
+                <div class="p-4">
+                    <h3 class="text-sm font-medium text-gray-900 line-clamp-2">${product.title}</h3>
+                    <div class="mt-2 flex gap-2">
+                        <a 
+                            href="${product.urlUSA}" 
+                            target="_blank"
+                            class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded"
+                        >
+                            USA
+                        </a>
+                        <a 
+                            href="${product.urlMexico}" 
+                            target="_blank"
+                            class="text-xs bg-green-100 text-green-800 px-2 py-1 rounded"
+                        >
+                            MX
+                        </a>
+                    </div>
                     <button 
-                        onclick="deleteProduct(${index})" 
-                        class="bg-red-700 text-white px-3 py-1 rounded hover:bg-red-800 focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
+                        onclick="deleteProduct(${index})"
+                        class="mt-2 text-red-600 text-sm hover:text-red-800"
                     >
                         Eliminar
                     </button>
                 </div>
-                <p class="mt-2 text-sm text-gray-900 truncate">${product.title}</p>
             </div>
         `).join('');
     }
 
+    // Función para eliminar un producto
     window.deleteProduct = async function(index) {
-        if (!confirm('¿Estás seguro de que quieres eliminar este producto?')) return;
+        if (!confirm('¿Estás seguro de que deseas eliminar este producto?')) return;
         
         try {
-            products.splice(index, 1);
-            await saveProducts(products);
-            renderProducts();
+            const updatedProducts = [...products];
+            updatedProducts.splice(index, 1);
+            await saveProducts(updatedProducts);
+            products = updatedProducts;
+            renderProducts(products);
         } catch (error) {
             console.error('Error deleting product:', error);
-            alert('Error al eliminar el producto');
         }
     };
 
-    // Modal handling
-    const modal = document.getElementById('uploadModal');
-    const openModalBtn = document.getElementById('openUploadModal');
-    const closeModalBtn = document.getElementById('closeModal');
-    const uploadForm = document.getElementById('uploadForm');
-    const imageInput = document.getElementById('image');
-    const imagePreview = document.getElementById('imagePreview');
-
-    if (openModalBtn && modal) {
-        openModalBtn.addEventListener('click', () => {
-            modal.classList.remove('hidden');
-        });
+    // Función para cargar productos
+    async function loadProducts(searchTerm = '') {
+        try {
+            products = await getProducts(true); // Forzar actualización
+            let filteredProducts = products;
+            
+            if (searchTerm) {
+                const normalizedSearch = searchTerm.toLowerCase();
+                filteredProducts = products.filter(product => 
+                    product.title.toLowerCase().includes(normalizedSearch)
+                );
+            }
+            
+            renderProducts(filteredProducts);
+        } catch (error) {
+            console.error('Error loading products:', error);
+        }
     }
 
-    if (closeModalBtn && modal) {
-        closeModalBtn.addEventListener('click', () => {
-            modal.classList.add('hidden');
-            if (uploadForm) uploadForm.reset();
-            if (imagePreview) imagePreview.classList.add('hidden');
-        });
-    }
+    // Event Listeners
+    document.addEventListener('DOMContentLoaded', () => {
+        // Cargar productos iniciales
+        loadProducts();
 
-    if (imageInput && imagePreview) {
-        imageInput.addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            if (file) {
+        // Manejar apertura del modal
+        document.getElementById('openUploadModal')?.addEventListener('click', () => toggleModal(true));
+
+        // Manejar cierre del modal
+        document.getElementById('closeModal')?.addEventListener('click', () => toggleModal(false));
+        document.getElementById('cancelUpload')?.addEventListener('click', () => toggleModal(false));
+
+        // Manejar vista previa de imagen
+        imageInput?.addEventListener('change', async (e) => {
+            const file = e.target.files?.[0];
+            if (file && imagePreview) {
                 const reader = new FileReader();
-                reader.onloadend = () => {
-                    imagePreview.src = reader.result;
+                reader.onload = async (e) => {
+                    const optimizedImage = await optimizeImageForStorage(e.target.result);
+                    imagePreview.src = optimizedImage;
                     imagePreview.classList.remove('hidden');
                 };
                 reader.readAsDataURL(file);
             }
         });
-    }
 
-    if (uploadForm) {
-        uploadForm.addEventListener('submit', async (e) => {
+        // Manejar envío del formulario
+        uploadForm?.addEventListener('submit', async (e) => {
             e.preventDefault();
             
-            const titleInput = document.getElementById('title');
-            const imageInput = document.getElementById('image');
-            const urlMexicoInput = document.getElementById('urlMexico');
-            const urlUSAInput = document.getElementById('urlUSA');
-
-            if (!titleInput.value || !imageInput.files[0] || !urlMexicoInput.value || !urlUSAInput.value) {
-                alert('Por favor llena todos los campos');
-                return;
-            }
-
             try {
-                const submitButton = uploadForm.querySelector('button[type="submit"]');
-                submitButton.disabled = true;
-                submitButton.textContent = 'Guardando...';
+                const titleInput = document.getElementById('title');
+                const urlUSAInput = document.getElementById('urlUSA');
+                const urlMexicoInput = document.getElementById('urlMexico');
+                
+                if (!titleInput?.value || !urlUSAInput?.value || !urlMexicoInput?.value || !imagePreview?.src) {
+                    throw new Error('Por favor completa todos los campos');
+                }
 
-                // Primero cargar los productos existentes
-                products = await getProducts(true);
-
-                const reader = new FileReader();
-                reader.onloadend = async () => {
-                    try {
-                        // Optimizar la imagen antes de guardar
-                        const optimizedImage = await optimizeImageForStorage(reader.result);
-                        
-                        const newProduct = {
-                            title: titleInput.value,
-                            image: optimizedImage,
-                            urlMexico: urlMexicoInput.value,
-                            urlUSA: urlUSAInput.value
-                        };
-
-                        products.push(newProduct);
-                        const result = await saveProducts(products);
-                        
-                        if (result.success) {
-                            products = result.products;
-                            renderProducts();
-                            modal.classList.add('hidden');
-                            uploadForm.reset();
-                            imagePreview.classList.add('hidden');
-                        } else {
-                            throw new Error('Error al guardar el producto');
-                        }
-                    } catch (error) {
-                        console.error('Error al guardar el producto:', error);
-                        alert('Error al guardar el producto. Por favor intenta de nuevo.');
-                    } finally {
-                        submitButton.disabled = false;
-                        submitButton.textContent = 'Guardar Producto';
-                    }
+                const newProduct = {
+                    title: titleInput.value,
+                    urlUSA: urlUSAInput.value,
+                    urlMexico: urlMexicoInput.value,
+                    image: imagePreview.src
                 };
-                reader.readAsDataURL(imageInput.files[0]);
+
+                const updatedProducts = [...products, newProduct];
+                await saveProducts(updatedProducts);
+                products = updatedProducts;
+                renderProducts(products);
+                toggleModal(false);
             } catch (error) {
-                console.error('Error al procesar la imagen:', error);
-                alert('Error al procesar la imagen. Por favor intenta de nuevo.');
+                console.error('Error saving product:', error);
             }
         });
-    }
 
-    // Clear storage button
-    const clearStorageBtn = document.getElementById('clearStorage');
-    if (clearStorageBtn) {
-        clearStorageBtn.addEventListener('click', async () => {
-            if (!confirm('¿Estás seguro de que quieres borrar todos los productos?')) return;
-            
-            try {
-                products = [];
-                await saveProducts(products);
-                renderProducts();
-            } catch (error) {
-                console.error('Error clearing storage:', error);
-                alert('Error al borrar los productos');
-            }
-        });
-    }
-
-    // Load products on page load
-    document.addEventListener('DOMContentLoaded', loadProducts);
-
-    // Search handling
-    const searchInput = document.getElementById('adminSearchInput');
-    if (searchInput) {
-        let debounceTimer;
-        searchInput.addEventListener('input', (e) => {
-            clearTimeout(debounceTimer);
-            debounceTimer = setTimeout(() => {
-                const searchTerm = e.target.value.trim().toLowerCase();
-                const filteredProducts = products.filter(product => 
-                    product.title.toLowerCase().includes(searchTerm)
-                );
-                renderProducts(filteredProducts);
+        // Manejar búsqueda
+        let searchTimeout;
+        searchInput?.addEventListener('input', (e) => {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                loadProducts(e.target.value);
             }, 300);
         });
 
-        searchInput.addEventListener('search', (e) => {
-            if (!e.target.value) {
-                renderProducts();
+        // Manejar borrado de productos
+        document.getElementById('clearStorage')?.addEventListener('click', async () => {
+            if (!confirm('¿Estás seguro de que deseas borrar todos los productos?')) return;
+            
+            try {
+                await saveProducts([]);
+                products = [];
+                renderProducts(products);
+            } catch (error) {
+                console.error('Error clearing products:', error);
             }
         });
-    }
+    });
 </script>
+
+<style>
+    .aspect-w-1 {
+        position: relative;
+        padding-bottom: 100%;
+    }
+    .aspect-h-1 {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        left: 0;
+        top: 0;
+    }
+</style>

@@ -12,7 +12,10 @@ function handleError(error) {
         }),
         {
             status: error.status || 500,
-            headers: { 'Content-Type': 'application/json' }
+            headers: { 
+                'Content-Type': 'application/json',
+                'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate'
+            }
         }
     );
 }
@@ -25,16 +28,26 @@ export async function GET() {
         if (!productBlob) {
             return new Response(JSON.stringify([]), {
                 status: 200,
-                headers: { 'Content-Type': 'application/json' }
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate'
+                }
             });
         }
 
         const response = await fetch(productBlob.url);
+        if (!response.ok) {
+            throw new Error('Failed to fetch products data');
+        }
+        
         const products = await response.json();
         
         return new Response(JSON.stringify(products), {
             status: 200,
-            headers: { 'Content-Type': 'application/json' }
+            headers: { 
+                'Content-Type': 'application/json',
+                'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate'
+            }
         });
     } catch (error) {
         return handleError(error);
@@ -49,20 +62,41 @@ export async function POST({ request }) {
     try {
         const products = await request.json();
         
+        // Validar la estructura de los productos
+        if (!Array.isArray(products)) {
+            return handleError(new Error('Products must be an array'));
+        }
+
+        // Validar cada producto
+        for (const product of products) {
+            if (!product.title || !product.image || !product.urlUSA || !product.urlMexico) {
+                return handleError(new Error('Invalid product data: missing required fields'));
+            }
+        }
+        
         // Guardar los productos
         const productsJson = JSON.stringify(products);
-        await put(PRODUCTS_FILE, productsJson, {
+        const blob = await put(PRODUCTS_FILE, productsJson, {
             access: 'public',
             addRandomSuffix: false,
-            token: process.env.BLOB_READ_WRITE_TOKEN
+            token: process.env.BLOB_READ_WRITE_TOKEN,
+            contentType: 'application/json'
         });
+
+        if (!blob || !blob.url) {
+            throw new Error('Failed to save products to storage');
+        }
 
         return new Response(JSON.stringify({ 
             success: true, 
-            products: products 
+            products: products,
+            url: blob.url
         }), {
             status: 200,
-            headers: { 'Content-Type': 'application/json' }
+            headers: { 
+                'Content-Type': 'application/json',
+                'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate'
+            }
         });
     } catch (error) {
         return handleError(error);
