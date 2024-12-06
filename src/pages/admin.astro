@@ -7,28 +7,14 @@ import { getProducts } from '../utils/productStorage';
 
 <MainLayout title="Panel de Administración">
     <div class="container mx-auto px-4 py-8">
-        <div class="flex justify-between items-center mb-8">
-            <div class="flex items-center gap-4">
-                <button 
-                    id="openUploadModal" 
-                    class="py-2 px-4 bg-indigo-700 text-white rounded-md hover:bg-indigo-800 focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 flex items-center gap-2"
-                >
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                        <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
-                    </svg>
-                    Subir Producto
-                </button>
-                <button 
-                    id="clearStorage" 
-                    class="py-2 px-4 bg-red-700 text-white rounded-md hover:bg-red-800 focus:ring-2 focus:ring-red-500 focus:ring-offset-2 flex items-center gap-2"
-                >
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                        <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
-                    </svg>
-                    Borrar Productos
-                </button>
-            </div>
-            <h1 class="text-3xl font-bold text-gray-900">Panel Administrador</h1>
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-2xl font-bold">Panel de Administración</h1>
+            <button
+                id="logoutButton"
+                class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+            >
+                Cerrar Sesión
+            </button>
         </div>
 
         <!-- Editor del Header -->
@@ -146,6 +132,96 @@ import { getProducts } from '../utils/productStorage';
     const imagePreview = document.getElementById('imagePreview') as HTMLImageElement | null;
     const gallery = document.getElementById('gallery') as HTMLDivElement | null;
     const searchInput = document.getElementById('adminSearchInput') as HTMLInputElement | null;
+
+    // Verificar autenticación
+    const authToken = localStorage.getItem('authToken');
+    if (!authToken) {
+        window.location.href = '/login';
+    }
+
+    // Configurar el botón de logout
+    const logoutButton = document.getElementById('logoutButton');
+    logoutButton?.addEventListener('click', async () => {
+        try {
+            await fetch('/api/logout', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${authToken}`
+                }
+            });
+            localStorage.removeItem('authToken');
+            window.location.href = '/login';
+        } catch (error) {
+            console.error('Logout error:', error);
+            alert('Error al cerrar sesión');
+        }
+    });
+
+    // Función para renovar el token
+    async function refreshToken() {
+        try {
+            const response = await fetch('/api/refresh-token', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+                }
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok && data.needsRefresh) {
+                localStorage.setItem('authToken', data.token);
+            } else if (!response.ok) {
+                localStorage.removeItem('authToken');
+                window.location.href = '/login';
+            }
+        } catch (error) {
+            console.error('Token refresh error:', error);
+        }
+    }
+
+    // Verificar y renovar el token cada 5 minutos
+    setInterval(refreshToken, 5 * 60 * 1000);
+
+    // Interceptar todas las peticiones fetch para agregar el token
+    let originalFetch: ((input: RequestInfo, init?: RequestInit) => Promise<Response>) | undefined;
+
+    if (typeof originalFetch === 'undefined') {
+        originalFetch = window.fetch;
+    }
+    window.fetch = async function(url, options = {}) {
+        const token = localStorage.getItem('authToken');
+        if (!token) {
+            window.location.href = '/login';
+            return new Promise(() => {});
+        }
+
+        options.headers = {
+            ...options.headers,
+            'Authorization': `Bearer ${token}`
+        };
+
+        try {
+            const response = await originalFetch!(url.toString(), options); // Convert URL to string
+            if (response.status === 401) {
+                localStorage.removeItem('authToken');
+                window.location.href = '/login';
+            }
+            return response;
+        } catch (error) {
+            console.error('Fetch error:', error);
+            throw error;
+        }
+    };
+
+    // Agregar el token a todas las peticiones fetch
+    window.fetch = function(url, options = {}) {
+        options.headers = {
+            ...options.headers,
+            'Authorization': `Bearer ${authToken}`
+        };
+        return originalFetch!(url.toString(), options); // Convert URL to string
+    };
 
     // Función para escapar HTML y prevenir XSS
     function escapeHtml(unsafe: string): string {

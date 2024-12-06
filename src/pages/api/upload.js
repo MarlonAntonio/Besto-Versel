@@ -1,4 +1,5 @@
 import { handleResponse, handleError } from '../../utils/apiHelpers';
+import { authMiddleware } from '../../middleware/auth';
 
 export const config = {
   api: {
@@ -8,6 +9,10 @@ export const config = {
 
 export async function POST({ request, env }) {
     try {
+        // Verificar autenticación
+        const authResponse = await authMiddleware({ request });
+        if (authResponse) return authResponse;
+
         const formData = await request.formData();
         const file = formData.get('file');
         
