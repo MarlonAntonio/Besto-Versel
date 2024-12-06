@@ -2,6 +2,7 @@
 import MainLayout from '../layouts/MainLayout.astro';
 import HeaderEditor from '../components/HeaderEditor';
 import SearchBar from '../components/SearchBar.astro';
+import { getProducts } from '../utils/productStorage';
 ---
 
 <MainLayout title="Panel de Administración">
@@ -41,14 +42,14 @@ import SearchBar from '../components/SearchBar.astro';
                 id="adminSearchInput"
                 aria-label="Buscar productos"
             />
-            <div id="gallery" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            <div id="gallery" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mt-6">
                 <!-- Products will be loaded here -->
             </div>
         </div>
 
         <!-- Modal de subida de productos -->
-        <div id="uploadModal" class="fixed inset-0 bg-gray-900 bg-opacity-50 hidden flex items-center justify-center z-50">
-            <div class="bg-white rounded-lg p-6 max-w-xl w-full max-h-[90vh] overflow-y-auto relative">
+        <div id="uploadModal" class="fixed inset-0 bg-gray-900 bg-opacity-50 hidden items-center justify-center z-50">
+            <div class="bg-white rounded-lg p-6 max-w-xl w-full max-h-[90vh] overflow-y-auto relative mx-4">
                 <button id="closeModal" class="absolute top-4 right-4 text-gray-700 hover:text-gray-900">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -108,7 +109,7 @@ import SearchBar from '../components/SearchBar.astro';
                         <button
                             type="button"
                             id="cancelUpload"
-                            class="py-2 px-4 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                            class="py-2 px-4 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
                         >
                             Cancelar
                         </button>
@@ -126,194 +127,444 @@ import SearchBar from '../components/SearchBar.astro';
 </MainLayout>
 
 <script>
-    import { saveProducts, getProducts, optimizeImageForStorage } from '../utils/productStorage';
+    import { saveProduct } from '../utils/productStorage';
+    import { optimizeImage, uploadImage } from '../utils/imageOptimizer';
 
-    let products = [];
-    const modal = document.getElementById('uploadModal');
-    const uploadForm = document.getElementById('uploadForm');
-    const imageInput = document.getElementById('image');
-    const imagePreview = document.getElementById('imagePreview');
-    const gallery = document.getElementById('gallery');
-    const searchInput = document.getElementById('adminSearchInput');
+    interface Product {
+        id?: string;
+        title: string;
+        urlUSA: string;
+        urlMexico: string;
+        image: string;
+        createdAt?: string;
+    }
+
+    let products: Product[] = [];
+    const modal = document.getElementById('uploadModal') as HTMLDivElement | null;
+    const uploadForm = document.getElementById('uploadForm') as HTMLFormElement | null;
+    const imageInput = document.getElementById('image') as HTMLInputElement | null;
+    const imagePreview = document.getElementById('imagePreview') as HTMLImageElement | null;
+    const gallery = document.getElementById('gallery') as HTMLDivElement | null;
+    const searchInput = document.getElementById('adminSearchInput') as HTMLInputElement | null;
+
+    // Función para escapar HTML y prevenir XSS
+    function escapeHtml(unsafe: string): string {
+        return unsafe
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
+
+    // Función para validar URLs
+    function isValidUrl(url: string): boolean {
+        try {
+            new URL(url);
+            return true;
+        } catch {
+            return false;
+        }
+    }
+
+    // Función para mostrar notificaciones
+    function showNotification(message: string, type: 'info' | 'success' | 'error' = 'info'): void {
+        const notification = document.createElement('div');
+        notification.className = `fixed bottom-4 right-4 p-4 rounded-lg shadow-lg ${
+            type === 'error' ? 'bg-red-500' : type === 'success' ? 'bg-green-500' : 'bg-blue-500'
+        } text-white z-50 transition-opacity duration-300`;
+        notification.textContent = message;
+        document.body.appendChild(notification);
+        
+        notification.style.opacity = '0';
+        requestAnimationFrame(() => {
+            notification.style.opacity = '1';
+        });
+        
+        setTimeout(() => {
+            notification.style.opacity = '0';
+            notification.addEventListener('transitionend', () => {
+                notification.remove();
+            });
+        }, 3000);
+    }
 
     // Función para mostrar/ocultar el modal
-    function toggleModal(show = true) {
-        if (modal) {
-            modal.style.display = show ? 'flex' : 'none';
-            if (!show && uploadForm) {
+    function toggleModal(show = true): void {
+        if (!modal) return;
+        
+        const bodyStyle = document.body.style;
+        if (show) {
+            modal.style.display = 'flex';
+            bodyStyle.overflow = 'hidden';
+            // Añadir padding-right para compensar la scrollbar
+            const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+            bodyStyle.paddingRight = `${scrollbarWidth}px`;
+        } else {
+            modal.style.display = 'none';
+            bodyStyle.overflow = '';
+            bodyStyle.paddingRight = '';
+            
+            if (uploadForm) {
                 uploadForm.reset();
-                if (imagePreview) imagePreview.classList.add('hidden');
+                if (imagePreview) {
+                    imagePreview.classList.add('hidden');
+                    imagePreview.src = '';
+                }
             }
         }
     }
 
     // Función para renderizar productos
-    function renderProducts(productsToRender) {
+    function renderProducts(productsToRender: Product[]): void {
         if (!gallery) return;
 
-        gallery.innerHTML = productsToRender.map((product, index) => `
-            <div class="bg-white border rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow">
-                <div class="aspect-w-1 aspect-h-1 bg-gray-200">
-                    <img 
-                        src="${product.image}" 
-                        alt="${product.title}"
-                        class="w-full h-full object-cover"
-                        loading="lazy"
-                    >
-                </div>
-                <div class="p-4">
-                    <h3 class="text-sm font-medium text-gray-900 line-clamp-2">${product.title}</h3>
-                    <div class="mt-2 flex gap-2">
-                        <a 
-                            href="${product.urlUSA}" 
-                            target="_blank"
-                            class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded"
-                        >
-                            USA
-                        </a>
-                        <a 
-                            href="${product.urlMexico}" 
-                            target="_blank"
-                            class="text-xs bg-green-100 text-green-800 px-2 py-1 rounded"
-                        >
-                            MX
-                        </a>
+        if (!Array.isArray(productsToRender)) {
+            console.error('Invalid products data:', productsToRender);
+            showNotification('Error al mostrar los productos', 'error');
+            return;
+        }
+
+        try {
+            gallery.innerHTML = productsToRender.map((product, index) => {
+                // Validar datos del producto
+                if (!product || typeof product !== 'object') {
+                    console.error('Invalid product:', product);
+                    return '';
+                }
+
+                // Escapar datos para prevenir XSS
+                const title = escapeHtml(product.title || '');
+                const urlUSA = isValidUrl(product.urlUSA) ? product.urlUSA : '#';
+                const urlMexico = isValidUrl(product.urlMexico) ? product.urlMexico : '#';
+                const imageUrl = product.image || 'https://via.placeholder.com/400x400?text=Imagen+no+disponible';
+
+                return `
+                    <div class="bg-white border rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                        <div class="relative pb-[100%] bg-gray-100">
+                            <img 
+                                src="${imageUrl}" 
+                                alt="${title}"
+                                class="absolute inset-0 w-full h-full object-cover"
+                                loading="lazy"
+                                onerror="this.src='https://via.placeholder.com/400x400?text=Error+de+imagen'"
+                            >
+                        </div>
+                        <div class="p-4">
+                            <h3 class="text-sm font-medium text-gray-900 line-clamp-2 mb-2">${title}</h3>
+                            <div class="flex gap-2 mb-2">
+                                <a 
+                                    href="${urlUSA}" 
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded hover:bg-blue-200 transition-colors"
+                                    ${urlUSA === '#' ? 'aria-disabled="true"' : ''}
+                                >
+                                    USA
+                                </a>
+                                <a 
+                                    href="${urlMexico}" 
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    class="text-xs bg-green-100 text-green-800 px-2 py-1 rounded hover:bg-green-200 transition-colors"
+                                    ${urlMexico === '#' ? 'aria-disabled="true"' : ''}
+                                >
+                                    MX
+                                </a>
+                            </div>
+                            <button 
+                                type="button"
+                                onclick="deleteProduct(${index})"
+                                class="w-full mt-2 text-red-600 text-sm hover:text-red-800 focus:outline-none focus:ring-2 focus:ring-red-500 rounded-md px-2 py-1 transition-colors"
+                                aria-label="Eliminar ${title}"
+                            >
+                                Eliminar
+                            </button>
+                        </div>
                     </div>
-                    <button 
-                        onclick="deleteProduct(${index})"
-                        class="mt-2 text-red-600 text-sm hover:text-red-800"
-                    >
-                        Eliminar
-                    </button>
-                </div>
-            </div>
-        `).join('');
+                `;
+            }).join('');
+        } catch (error) {
+            console.error('Error rendering products:', error);
+            showNotification('Error al mostrar los productos', 'error');
+            gallery.innerHTML = '<p class="text-red-600">Error al cargar los productos. Por favor, intenta recargar la página.</p>';
+        }
     }
 
     // Función para eliminar un producto
-    window.deleteProduct = async function(index) {
+    window.deleteProduct = async function(index: number): Promise<void> {
         if (!confirm('¿Estás seguro de que deseas eliminar este producto?')) return;
         
         try {
             const updatedProducts = [...products];
             updatedProducts.splice(index, 1);
-            await saveProducts(updatedProducts);
+            await saveProduct(updatedProducts);
             products = updatedProducts;
             renderProducts(products);
+            showNotification('Producto eliminado exitosamente', 'success');
         } catch (error) {
             console.error('Error deleting product:', error);
+            showNotification('Error al eliminar el producto', 'error');
         }
     };
 
     // Función para cargar productos
-    async function loadProducts(searchTerm = '') {
+    async function loadProducts(): Promise<void> {
         try {
-            products = await getProducts(true); // Forzar actualización
-            let filteredProducts = products;
-            
-            if (searchTerm) {
-                const normalizedSearch = searchTerm.toLowerCase();
-                filteredProducts = products.filter(product => 
-                    product.title.toLowerCase().includes(normalizedSearch)
-                );
-            }
-            
-            renderProducts(filteredProducts);
+            products = await getProducts();
+            renderProducts(products);
         } catch (error) {
             console.error('Error loading products:', error);
+            showNotification('Error al cargar los productos', 'error');
         }
     }
 
-    // Event Listeners
+    // Función para manejar la búsqueda con debounce
+    let searchTimeout: number;
+    function handleSearch(searchTerm: string): void {
+        const filteredProducts = products.filter(product => 
+            product.title.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+        renderProducts(filteredProducts);
+    }
+
+    // Función para procesar y subir imagen
+    async function processAndUploadImage(file: File): Promise<string> {
+        try {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = async (e) => {
+                    try {
+                        if (!e.target) throw new Error('Event target is null');
+                        const imageData = e.target.result as string;
+                        const optimizedBlob = await optimizeImage(imageData);
+                        const filename = `product-${Date.now()}-${file.name}`;
+                        const imageUrl = await uploadImage(optimizedBlob, filename);
+                        resolve(imageUrl);
+                    } catch (error) {
+                        reject(error);
+                    }
+                };
+                reader.onerror = () => reject(new Error('Error reading file'));
+                reader.readAsDataURL(file);
+            });
+        } catch (error) {
+            console.error('Error processing image:', error);
+            throw new Error('Failed to process and upload image');
+        }
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
         // Cargar productos iniciales
         loadProducts();
 
-        // Manejar apertura del modal
+        // Event listeners para el modal
         document.getElementById('openUploadModal')?.addEventListener('click', () => toggleModal(true));
-
-        // Manejar cierre del modal
         document.getElementById('closeModal')?.addEventListener('click', () => toggleModal(false));
         document.getElementById('cancelUpload')?.addEventListener('click', () => toggleModal(false));
 
-        // Manejar vista previa de imagen
-        imageInput?.addEventListener('change', async (e) => {
-            const file = e.target.files?.[0];
-            if (file && imagePreview) {
-                const reader = new FileReader();
-                reader.onload = async (e) => {
-                    const optimizedImage = await optimizeImageForStorage(e.target.result);
-                    imagePreview.src = optimizedImage;
-                    imagePreview.classList.remove('hidden');
-                };
-                reader.readAsDataURL(file);
-            }
-        });
-
-        // Manejar envío del formulario
-        uploadForm?.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            
+        // Event listener para limpiar el almacenamiento
+        document.getElementById('clearStorage')?.addEventListener('click', async () => {
+            if (!confirm('¿Estás seguro de que deseas eliminar todos los productos?')) return;
             try {
-                const titleInput = document.getElementById('title');
-                const urlUSAInput = document.getElementById('urlUSA');
-                const urlMexicoInput = document.getElementById('urlMexico');
-                
-                if (!titleInput?.value || !urlUSAInput?.value || !urlMexicoInput?.value || !imagePreview?.src) {
-                    throw new Error('Por favor completa todos los campos');
-                }
-
-                const newProduct = {
-                    title: titleInput.value,
-                    urlUSA: urlUSAInput.value,
-                    urlMexico: urlMexicoInput.value,
-                    image: imagePreview.src
-                };
-
-                const updatedProducts = [...products, newProduct];
-                await saveProducts(updatedProducts);
-                products = updatedProducts;
+                await saveProduct([]);
+                products = [];
                 renderProducts(products);
-                toggleModal(false);
+                showNotification('Todos los productos han sido eliminados', 'success');
             } catch (error) {
-                console.error('Error saving product:', error);
+                console.error('Error clearing storage:', error);
+                showNotification('Error al limpiar el almacenamiento', 'error');
             }
         });
 
-        // Manejar búsqueda
-        let searchTimeout;
-        searchInput?.addEventListener('input', (e) => {
+        // Event listener para la búsqueda con debounce
+        searchInput?.addEventListener('input', (e: Event) => {
+            const target = e.target as HTMLInputElement;
             clearTimeout(searchTimeout);
-            searchTimeout = setTimeout(() => {
-                loadProducts(e.target.value);
+            searchTimeout = window.setTimeout(() => {
+                handleSearch(target.value.trim());
             }, 300);
         });
 
-        // Manejar borrado de productos
-        document.getElementById('clearStorage')?.addEventListener('click', async () => {
-            if (!confirm('¿Estás seguro de que deseas borrar todos los productos?')) return;
+        // Event listener para previsualización de imagen
+        imageInput?.addEventListener('change', async function(e: Event) {
+            const target = e.target as HTMLInputElement;
+            const file = target.files?.[0];
+            
+            if (!file) {
+                if (imagePreview) {
+                    imagePreview.classList.add('hidden');
+                    imagePreview.src = '';
+                }
+                return;
+            }
+
+            // Validar tipo y tamaño de archivo
+            if (!file.type.startsWith('image/')) {
+                showNotification('Por favor selecciona un archivo de imagen válido', 'error');
+                target.value = '';
+                return;
+            }
+
+            const maxSize = 5 * 1024 * 1024; // 5MB
+            if (file.size > maxSize) {
+                showNotification('La imagen no debe superar los 5MB', 'error');
+                target.value = '';
+                return;
+            }
+
+            try {
+                const reader = new FileReader();
+                reader.onload = async function(e) {
+                    if (!imagePreview) return;
+                    
+                    try {
+                        if (!e.target) throw new Error('Event target is null');
+                        const imageData = e.target.result as string;
+                        const optimizedBlob = await optimizeImage(imageData);
+                        const optimizedUrl = URL.createObjectURL(optimizedBlob);
+                        
+                        imagePreview.onload = () => {
+                            imagePreview.classList.remove('hidden');
+                            URL.revokeObjectURL(optimizedUrl);
+                        };
+                        
+                        imagePreview.src = optimizedUrl;
+                    } catch (error) {
+                        console.error('Error optimizing preview image:', error);
+                        showNotification('Error al previsualizar la imagen', 'error');
+                        target.value = '';
+                        imagePreview.classList.add('hidden');
+                    }
+                };
+                
+                reader.onerror = () => {
+                    console.error('Error reading file:', reader.error);
+                    showNotification('Error al leer el archivo', 'error');
+                    target.value = '';
+                };
+                
+                reader.readAsDataURL(file);
+            } catch (error) {
+                console.error('Error previewing image:', error);
+                showNotification('Error al previsualizar la imagen', 'error');
+                imageInput!.value = '';
+            }
+        });
+
+        // Event listener para el formulario
+        uploadForm?.addEventListener('submit', async function(e: Event) {
+            e.preventDefault();
             
             try {
-                await saveProducts([]);
-                products = [];
-                renderProducts(products);
+                const formData = new FormData(this as HTMLFormElement);
+                const file = formData.get('image') as File;
+                const title = formData.get('title') as string;
+                const urlUSA = formData.get('urlUSA') as string;
+                const urlMexico = formData.get('urlMexico') as string;
+
+                // Validaciones
+                if (!title?.trim()) {
+                    showNotification('Por favor ingresa un título', 'error');
+                    return;
+                }
+
+                if (!isValidUrl(urlUSA)) {
+                    showNotification('La URL de USA no es válida', 'error');
+                    return;
+                }
+
+                if (!isValidUrl(urlMexico)) {
+                    showNotification('La URL de México no es válida', 'error');
+                    return;
+                }
+
+                if (!file || !file.type.startsWith('image/')) {
+                    showNotification('Por favor selecciona un archivo de imagen válido', 'error');
+                    return;
+                }
+
+                const maxSize = 5 * 1024 * 1024; // 5MB
+                if (file.size > maxSize) {
+                    showNotification('La imagen no debe superar los 5MB', 'error');
+                    return;
+                }
+
+                // Mostrar indicador de carga
+                const submitButton = uploadForm.querySelector('button[type="submit"]') as HTMLButtonElement;
+                const originalText = submitButton.textContent || '';
+                submitButton.disabled = true;
+                submitButton.textContent = 'Guardando...';
+
+                try {
+                    const imageUrl = await processAndUploadImage(file);
+                    const newProduct: Product = {
+                        title: title.trim(),
+                        urlUSA,
+                        urlMexico,
+                        image: imageUrl,
+                        createdAt: new Date().toISOString()
+                    };
+
+                    products.push(newProduct);
+                    await saveProduct(products);
+                    renderProducts(products);
+                    toggleModal(false);
+                    showNotification('Producto guardado exitosamente', 'success');
+                } finally {
+                    // Restaurar botón
+                    submitButton.disabled = false;
+                    submitButton.textContent = originalText;
+                }
             } catch (error) {
-                console.error('Error clearing products:', error);
+                console.error('Error saving product:', error);
+                showNotification('Error al guardar el producto', 'error');
+            }
+        });
+
+        // Cerrar modal con Escape
+        document.addEventListener('keydown', (e: KeyboardEvent) => {
+            if (e.key === 'Escape' && modal?.style.display === 'flex') {
+                toggleModal(false);
+            }
+        });
+
+        // Cerrar modal al hacer clic fuera
+        modal?.addEventListener('click', (e: MouseEvent) => {
+            if (e.target === modal) {
+                toggleModal(false);
             }
         });
     });
 </script>
 
 <style>
-    .aspect-w-1 {
-        position: relative;
-        padding-bottom: 100%;
+    /* Custom scrollbar styles */
+    .overflow-y-auto {
+        scrollbar-width: thin;
+        scrollbar-color: #CBD5E0 #EDF2F7;
     }
-    .aspect-h-1 {
-        position: absolute;
-        width: 100%;
-        height: 100%;
-        left: 0;
-        top: 0;
+    
+    .overflow-y-auto::-webkit-scrollbar {
+        width: 8px;
+    }
+    
+    .overflow-y-auto::-webkit-scrollbar-track {
+        background: #EDF2F7;
+        border-radius: 4px;
+    }
+    
+    .overflow-y-auto::-webkit-scrollbar-thumb {
+        background-color: #CBD5E0;
+        border-radius: 4px;
+        border: 2px solid #EDF2F7;
+    }
+
+    /* Line clamp fallback for browsers that don't support the utility class */
+    .line-clamp-2 {
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
     }
 </style>

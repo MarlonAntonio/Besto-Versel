@@ -1,138 +1,63 @@
-import Sharp from 'sharp';
-
 /**
- * Optimiza una imagen redimensionándola y comprimiéndola
- * @param {File} file - El archivo de imagen a optimizar
- * @param {Object} options - Opciones de optimización
- * @returns {Promise<Object>} - La imagen optimizada con metadatos
- */
-export async function optimizeImage(file, options = {}) {
-    const {
-        maxWidth = 800,
-        maxHeight = 800,
-        quality = 0.8,
-        format = 'webp'
-    } = options;
-
-    try {
-        // Crear un objeto URL para la imagen
-        const imageUrl = URL.createObjectURL(file);
-        
-        // Cargar la imagen
-        const img = new Image();
-        await new Promise((resolve, reject) => {
-            img.onload = resolve;
-            img.onerror = reject;
-            img.src = imageUrl;
-        });
-
-        // Liberar el objeto URL
-        URL.revokeObjectURL(imageUrl);
-
-        // Calcular las nuevas dimensiones manteniendo el aspect ratio
-        let { width, height } = calculateDimensions(img.width, img.height, maxWidth, maxHeight);
-
-        // Crear un canvas para la optimización
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-
-        // Establecer dimensiones del canvas
-        canvas.width = width;
-        canvas.height = height;
-
-        // Dibujar la imagen optimizada
-        ctx.drawImage(img, 0, 0, width, height);
-
-        // Convertir a formato especificado
-        const mimeType = `image/${format}`;
-        const dataUrl = canvas.toDataURL(mimeType, quality);
-
-        // Validar el tamaño resultante
-        const sizeInMB = (dataUrl.length * 0.75) / (1024 * 1024); // Convertir de base64 a MB
-        if (sizeInMB > 5) {
-            // Si la imagen es mayor a 5MB, reoptimizar con menor calidad
-            return optimizeImage(file, { 
-                ...options, 
-                quality: Math.max(0.5, quality - 0.2),
-                maxWidth: Math.floor(width * 0.8),
-                maxHeight: Math.floor(height * 0.8)
-            });
-        }
-
-        return {
-            dataUrl,
-            width,
-            height,
-            size: sizeInMB,
-            format,
-            quality
-        };
-    } catch (error) {
-        console.error('Error optimizing image:', error);
-        throw new Error('No se pudo optimizar la imagen. Por favor intenta con otra imagen.');
-    }
-}
-
-function calculateDimensions(originalWidth, originalHeight, maxWidth, maxHeight) {
-    let width = originalWidth;
-    let height = originalHeight;
-
-    // Reducir si excede el ancho máximo
-    if (width > maxWidth) {
-        height = Math.floor(height * (maxWidth / width));
-        width = maxWidth;
-    }
-
-    // Reducir si aún excede el alto máximo
-    if (height > maxHeight) {
-        width = Math.floor(width * (maxHeight / height));
-        height = maxHeight;
-    }
-
-    return { width, height };
-}
-
-/**
- * Obtiene información sobre el tamaño de una imagen en base64
- * @param {string} base64String - La imagen en formato base64
- * @returns {string} - Tamaño formateado
- */
-export function getBase64Size(base64String) {
-    const sizeInBytes = (base64String.length * 0.75);
-    if (sizeInBytes < 1024) {
-        return `${sizeInBytes.toFixed(2)}B`;
-    } else if (sizeInBytes < 1024 * 1024) {
-        return `${(sizeInBytes / 1024).toFixed(2)}KB`;
-    } else {
-        return `${(sizeInBytes / 1024 / 1024).toFixed(2)}MB`;
-    }
-}
-
-/**
- * Optimizes an image by resizing and compressing it
+ * Optimizes an image using Canvas API
  * @param {string} imageData - Base64 encoded image data
- * @returns {Promise<string>} - Optimized base64 encoded image data
+ * @returns {Promise<Blob>} - Optimized image blob
  */
-export async function optimizeImageWithSharp(imageData) {
+export async function optimizeImage(imageData) {
     try {
-        // Remove data URL prefix if present
-        const base64Data = imageData.replace(/^data:image\/\w+;base64,/, '');
-        const buffer = Buffer.from(base64Data, 'base64');
-
-        // Process image with Sharp
-        const optimizedBuffer = await Sharp(buffer)
-            .resize(800, 800, { // Resize to max dimensions while maintaining aspect ratio
-                fit: 'inside',
-                withoutEnlargement: true
-            })
-            .jpeg({ // Convert to JPEG and compress
-                quality: 80,
-                progressive: true
-            })
-            .toBuffer();
-
-        // Convert back to base64
-        return `data:image/jpeg;base64,${optimizedBuffer.toString('base64')}`;
+        return new Promise((resolve, reject) => {
+            // Create an image element
+            const img = new Image();
+            
+            // Handle load event
+            img.onload = () => {
+                // Create canvas
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                
+                // Calculate new dimensions
+                let { width, height } = img;
+                const maxSize = 800;
+                
+                if (width > maxSize || height > maxSize) {
+                    if (width > height) {
+                        height = Math.round((height * maxSize) / width);
+                        width = maxSize;
+                    } else {
+                        width = Math.round((width * maxSize) / height);
+                        height = maxSize;
+                    }
+                }
+                
+                // Set canvas dimensions
+                canvas.width = width;
+                canvas.height = height;
+                
+                // Draw and optimize image
+                ctx.drawImage(img, 0, 0, width, height);
+                
+                // Convert to blob
+                canvas.toBlob(
+                    (blob) => {
+                        if (blob) {
+                            resolve(blob);
+                        } else {
+                            reject(new Error('Failed to convert canvas to blob'));
+                        }
+                    },
+                    'image/jpeg',
+                    0.8 // quality
+                );
+            };
+            
+            // Handle error
+            img.onerror = () => {
+                reject(new Error('Failed to load image'));
+            };
+            
+            // Set image source
+            img.src = imageData;
+        });
     } catch (error) {
         console.error('Error optimizing image:', error);
         throw new Error('Failed to optimize image');
@@ -140,25 +65,19 @@ export async function optimizeImageWithSharp(imageData) {
 }
 
 /**
- * Uploads an image to storage via API
- * @param {string} imageData - Base64 encoded image data
+ * Uploads an image to Cloudflare R2
+ * @param {Blob} imageBlob - Image blob to upload
  * @param {string} filename - Name for the uploaded file
  * @returns {Promise<string>} - URL of the uploaded image
  */
-export async function uploadImage(imageData, filename) {
+export async function uploadImage(imageBlob, filename) {
     try {
-        const timestamp = new Date().getTime();
-        const uniqueFilename = `${timestamp}-${filename}.jpg`;
+        const formData = new FormData();
+        formData.append('file', imageBlob, filename);
 
         const response = await fetch('/api/upload', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                image: imageData,
-                filename: uniqueFilename
-            })
+            body: formData
         });
 
         if (!response.ok) {
@@ -166,39 +85,10 @@ export async function uploadImage(imageData, filename) {
             throw new Error(error.message || 'Failed to upload image');
         }
 
-        const { data } = await response.json();
-        return data.url;
-    } catch (error) {
-        console.error('Error uploading image:', error);
-        throw new Error('Failed to upload image to storage');
-    }
-}
-
-/**
- * Uploads an optimized image to Vercel Blob storage
- * @param {string} imageData - Base64 encoded image data
- * @param {string} filename - Name for the uploaded file
- * @returns {Promise<string>} - URL of the uploaded image
- */
-export async function uploadToBlob(imageData, filename) {
-    try {
-        // Remove data URL prefix if present
-        const base64Data = imageData.replace(/^data:image\/\w+;base64,/, '');
-        const buffer = Buffer.from(base64Data, 'base64');
-
-        // Generate a unique filename with timestamp
-        const timestamp = new Date().getTime();
-        const uniqueFilename = `products/${timestamp}-${filename}.jpg`;
-
-        // Upload to Vercel Blob
-        const { url } = await put(uniqueFilename, buffer, {
-            access: 'public',
-            contentType: 'image/jpeg'
-        });
-
+        const { url } = await response.json();
         return url;
     } catch (error) {
-        console.error('Error uploading to Vercel Blob:', error);
+        console.error('Error uploading image:', error);
         throw new Error('Failed to upload image to storage');
     }
 }
@@ -212,10 +102,14 @@ export async function uploadToBlob(imageData, filename) {
 export async function processAndUploadImage(imageData, filename) {
     try {
         // First optimize the image
-        const optimizedImage = await optimizeImageWithSharp(imageData);
+        const optimizedBlob = await optimizeImage(imageData);
         
-        // Then upload via API
-        const imageUrl = await uploadImage(optimizedImage, filename);
+        // Generate unique filename
+        const timestamp = new Date().getTime();
+        const uniqueFilename = `${timestamp}-${filename}.jpg`;
+        
+        // Upload to R2
+        const imageUrl = await uploadImage(optimizedBlob, uniqueFilename);
         
         return imageUrl;
     } catch (error) {

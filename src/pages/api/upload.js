@@ -1,57 +1,45 @@
-import { put } from '@vercel/blob';
-import { handleResponse } from '../../utils/apiHelpers';
+import { handleResponse, handleError } from '../../utils/apiHelpers';
 
 export const config = {
   api: {
-    bodyParser: {
-      sizeLimit: '10mb',
-    },
+    bodyParser: false,
   },
 };
 
-export async function POST(req) {
-  try {
-    if (!process.env.BLOB_READ_WRITE_TOKEN) {
-      return handleResponse({
-        error: 'Blob storage not configured',
-        status: 500
-      });
+export async function POST({ request, env }) {
+    try {
+        const formData = await request.formData();
+        const file = formData.get('file');
+        
+        if (!file) {
+            return handleResponse({
+                error: 'No file provided',
+                status: 400
+            });
+        }
+
+        // Obtener el nombre del archivo del FormData
+        const filename = file.name;
+        
+        // Convertir el archivo a ArrayBuffer
+        const arrayBuffer = await file.arrayBuffer();
+        
+        // Subir a R2
+        await env.PRODUCT_IMAGES.put(filename, arrayBuffer, {
+            httpMetadata: {
+                contentType: file.type
+            }
+        });
+
+        // Construir la URL pública
+        const imageUrl = `${env.R2_PUBLIC_URL}/${filename}`;
+
+        return handleResponse({
+            data: { url: imageUrl },
+            status: 200
+        });
+    } catch (error) {
+        console.error('Error handling file upload:', error);
+        return handleError(error);
     }
-
-    const { image, filename } = await req.json();
-
-    if (!image || !filename) {
-      return handleResponse({
-        error: 'Missing required fields',
-        status: 400
-      });
-    }
-
-    // Convert base64 to buffer
-    const imageBuffer = Buffer.from(
-      image.replace(/^data:image\/\w+;base64,/, ''),
-      'base64'
-    );
-
-    // Upload to Vercel Blob
-    const { url } = await put(
-      `products/${filename}`,
-      imageBuffer,
-      {
-        access: 'public',
-        contentType: 'image/jpeg'
-      }
-    );
-
-    return handleResponse({
-      data: { url },
-      status: 200
-    });
-  } catch (error) {
-    console.error('Error uploading to blob:', error);
-    return handleResponse({
-      error: 'Failed to upload image',
-      status: 500
-    });
-  }
 }

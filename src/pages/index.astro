@@ -30,7 +30,7 @@ const headerConfig = {
         import { getProducts } from '../utils/productStorage';
 
         // Función para normalizar texto (eliminar acentos)
-        function normalizeText(text) {
+        function normalizeText(text: string) {
             return text.toLowerCase()
                 .normalize('NFD')
                 .replace(/[\u0300-\u036f]/g, '');
@@ -46,7 +46,7 @@ const headerConfig = {
         const imageObserver = new IntersectionObserver((entries, observer) => {
             entries.forEach(entry => {
                 if (entry.isIntersecting) {
-                    const img = entry.target;
+                    const img = entry.target as HTMLImageElement;
                     if (img.dataset.src) {
                         img.src = img.dataset.src;
                         img.removeAttribute('data-src');
@@ -138,7 +138,11 @@ const headerConfig = {
                 product.url = country === 'US' ? product.urlUSA : product.urlMexico;
             });
             
-            window.renderProducts(filteredProducts);
+            if (typeof window.renderProducts === 'function') {
+                window.renderProducts(filteredProducts);
+            } else {
+                console.error('renderProducts is not defined');
+            }
         }
 
         // Inicializar la carga de productos
@@ -147,13 +151,14 @@ const headerConfig = {
         });
 
         // Agregar debounce para la búsqueda
-        let searchTimeout;
+        let searchTimeout: ReturnType<typeof setTimeout>;
         const searchInput = document.getElementById('searchInput');
         if (searchInput) {
             searchInput.addEventListener('input', (e) => {
                 clearTimeout(searchTimeout);
                 searchTimeout = setTimeout(() => {
-                    loadProducts(e.target.value);
+                    const inputElement = e.target as HTMLInputElement;
+                    loadProducts(inputElement.value);
                 }, 300);
             });
         }

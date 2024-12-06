@@ -29,16 +29,23 @@ import MainLayout from '../layouts/MainLayout.astro';
     <script>
         const CORRECT_PASSWORD = '90gupi90';
         
-        document.getElementById('loginForm').addEventListener('submit', (e) => {
-            e.preventDefault();
-            const password = document.getElementById('password').value;
-            
-            if (password === CORRECT_PASSWORD) {
-                localStorage.setItem('isAuthenticated', 'true');
-                window.location.href = '/admin';
-            } else {
-                alert('Contraseña incorrecta');
-            }
-        });
+        const loginForm = document.getElementById('loginForm');
+        const passwordInput = document.getElementById('password');
+
+        if (loginForm && passwordInput) {
+            loginForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const password = (passwordInput as HTMLInputElement).value;
+                
+                if (password === CORRECT_PASSWORD) {
+                    localStorage.setItem('isAuthenticated', 'true');
+                    window.location.href = '/admin';
+                } else {
+                    alert('Contraseña incorrecta');
+                }
+            });
+        } else {
+            console.error('Login form or password input not found');
+        }
     </script>
 </MainLayout>

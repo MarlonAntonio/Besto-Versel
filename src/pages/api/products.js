@@ -1,102 +1,64 @@
-import { put, list } from '@vercel/blob';
+import { handleResponse } from '../../utils/apiHelpers';
 
 const PRODUCTS_FILE = 'products.json';
 
 // Función auxiliar para manejar errores
 function handleError(error) {
     console.error('API Error:', error);
-    return new Response(
-        JSON.stringify({
-            error: error.message || 'Internal server error',
-            details: process.env.NODE_ENV === 'development' ? error.stack : undefined
-        }),
-        {
-            status: error.status || 500,
-            headers: { 
-                'Content-Type': 'application/json',
-                'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate'
-            }
-        }
-    );
+    return handleResponse({
+        error: error.message || 'Internal server error',
+        status: 500
+    });
 }
 
-export async function GET() {
+export async function GET({ request, env }) {
     try {
-        const { blobs } = await list();
-        const productBlob = blobs.find(blob => blob.pathname === PRODUCTS_FILE);
-        
-        if (!productBlob) {
-            return new Response(JSON.stringify([]), {
-                status: 200,
-                headers: { 
-                    'Content-Type': 'application/json',
-                    'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate'
-                }
-            });
-        }
-
-        const response = await fetch(productBlob.url);
-        if (!response.ok) {
-            throw new Error('Failed to fetch products data');
-        }
-        
-        const products = await response.json();
-        
-        return new Response(JSON.stringify(products), {
-            status: 200,
-            headers: { 
-                'Content-Type': 'application/json',
-                'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate'
+        // Aquí implementaremos la lógica para obtener productos desde una base de datos
+        const products = [
+            {
+                id: 1,
+                name: "Producto de ejemplo",
+                description: "Este es un producto de ejemplo",
+                imageUrl: `${env.R2_PUBLIC_URL}/example-product.jpg`,
+                amazonUSUrl: "https://amazon.com/example",
+                amazonMXUrl: "https://amazon.com.mx/example"
             }
+        ];
+
+        return handleResponse({
+            data: products,
+            status: 200
         });
     } catch (error) {
         return handleError(error);
     }
 }
 
-export async function POST({ request }) {
-    if (!process.env.BLOB_READ_WRITE_TOKEN) {
-        return handleError(new Error('Missing Vercel Blob configuration'));
-    }
-
+export async function POST({ request, env }) {
     try {
-        const products = await request.json();
-        
-        // Validar la estructura de los productos
-        if (!Array.isArray(products)) {
-            return handleError(new Error('Products must be an array'));
+        const data = await request.json();
+        const { name, description, imageUrl, amazonUSUrl, amazonMXUrl } = data;
+
+        if (!name || !description || !imageUrl || !amazonUSUrl || !amazonMXUrl) {
+            return handleResponse({
+                error: 'Missing required fields',
+                status: 400
+            });
         }
 
-        // Validar cada producto
-        for (const product of products) {
-            if (!product.title || !product.image || !product.urlUSA || !product.urlMexico) {
-                return handleError(new Error('Invalid product data: missing required fields'));
-            }
-        }
-        
-        // Guardar los productos
-        const productsJson = JSON.stringify(products);
-        const blob = await put(PRODUCTS_FILE, productsJson, {
-            access: 'public',
-            addRandomSuffix: false,
-            token: process.env.BLOB_READ_WRITE_TOKEN,
-            contentType: 'application/json'
-        });
+        // Aquí implementaremos la lógica para guardar en una base de datos
+        const newProduct = {
+            id: Date.now(),
+            name,
+            description,
+            imageUrl,
+            amazonUSUrl,
+            amazonMXUrl
+        };
 
-        if (!blob || !blob.url) {
-            throw new Error('Failed to save products to storage');
-        }
-
-        return new Response(JSON.stringify({ 
-            success: true, 
-            products: products,
-            url: blob.url
-        }), {
-            status: 200,
-            headers: { 
-                'Content-Type': 'application/json',
-                'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate'
-            }
+        return handleResponse({
+            data: newProduct,
+            status: 201
         });
     } catch (error) {
         return handleError(error);

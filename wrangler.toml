@@ -1,0 +1,22 @@
+name = "besto-pagina"
+compatibility_date = "2023-12-01"
+workers_dev = true
+main = "./dist/_worker.js/index.js"
+
+[site]
+bucket = "./dist"
+
+[build]
+command = "npm run build"
+watch_dir = "src"
+
+[[r2_buckets]]
+binding = "PRODUCT_IMAGES"
+bucket_name = "product-images"
+preview_bucket_name = "product-images-dev"
+
+[vars]
+R2_PUBLIC_URL = "https://pub-xxxxx.r2.dev/product-images"
+
+[env.production]
+workers_dev = false

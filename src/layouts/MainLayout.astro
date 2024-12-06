@@ -79,11 +79,6 @@ const headerConfig = {
             if (headerConfig.profileImage) {
                 preloadImage(headerConfig.profileImage).catch(console.error);
             }
-
-            // Registrar Service Worker si está disponible
-            if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.register('/sw.js').catch(console.error);
-            }
         });
     </script>
 </body>
